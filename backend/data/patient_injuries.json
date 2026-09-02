@@ -1,0 +1,12 @@
+[
+  {"key": "tbi", "label": "TBI / Head injury", "required_level": 1, "safe_window_min": 10},
+  {"key": "polytrauma", "label": "Polytrauma", "required_level": 1, "safe_window_min": 10},
+  {"key": "spinal", "label": "Spinal injury", "required_level": 1, "safe_window_min": 10},
+  {"key": "burns_major", "label": "Major burns", "required_level": 1, "safe_window_min": 10},
+  {"key": "cardiac", "label": "Cardiac arrest", "required_level": 1, "safe_window_min": 10},
+  {"key": "pediatric_trauma", "label": "Pediatric trauma", "required_level": 1, "safe_window_min": 10},
+  {"key": "thoracic", "label": "Thoracic injury", "required_level": 2, "safe_window_min": 20},
+  {"key": "abdominal", "label": "Abdominal injury", "required_level": 2, "safe_window_min": 20},
+  {"key": "orthopedic", "label": "Orthopedic / Fractures", "required_level": 2, "safe_window_min": 30},
+  {"key": "minor", "label": "Minor / Observation", "required_level": 3, "safe_window_min": 45}
+]

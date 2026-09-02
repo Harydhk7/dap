@@ -1,0 +1,59 @@
+services:
+  db:
+    image: postgis/postgis:15-3.4
+    container_name: ambumap_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ambumap
+      POSTGRES_PASSWORD: ambumap
+      POSTGRES_DB: ambumap
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ambumap -d ambumap -h localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: ambumap_backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg2://ambumap:ambumap@db:5432/ambumap
+      CORS_ORIGINS: "*"
+      PORT: 5001
+    ports:
+      - "5001:5001"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: ambumap_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+  # Optional: self-hosted OSRM. Uncomment after building the .osrm graph.
+  # See README "Self-hosted OSRM" section for the one-time graph build steps.
+  # osrm:
+  #   image: osrm/osrm-backend
+  #   container_name: ambumap_osrm
+  #   command: osrm-routed --algorithm mld /data/northern-zone-latest.osrm
+  #   ports:
+  #     - "5000:5000"
+  #   volumes:
+  #     - ./osrm-data:/data
+
+volumes:
+  pgdata:

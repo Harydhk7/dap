@@ -1,0 +1,31 @@
+# Optional: Render Blueprint — lets you provision the web service AND the
+# Postgres database with one click via "New +" → "Blueprint" in Render.
+# If you don't use this, follow the manual steps in DEPLOYMENT.md.
+
+databases:
+  - name: ambumap-postgres
+    plan: free
+    postgresMajorVersion: 15
+    # NOTE: Render's managed Postgres supports PostGIS — you'll enable it
+    # manually via the Render Shell once after first deploy:
+    #   psql $DATABASE_URL -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+
+services:
+  - type: web
+    name: ambumap-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers 2 --threads 4 --timeout 120 --bind 0.0.0.0:$PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ambumap-postgres
+          property: connectionString
+      - key: OSRM_HOST
+        value: https://router.project-osrm.org
+      - key: CORS_ORIGINS
+        value: "*"            # tighten to your Vercel URL after frontend is deployed
+      - key: PYTHON_VERSION
+        value: "3.11"

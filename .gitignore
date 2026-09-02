@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+*.log
+
+# Node / Vite
+node_modules/
+dist/
+.vite/
+
+# Env files (never commit secrets)
+.env
+.env.local
+.env.production
+backend/.env
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Docker volumes (if you ever store them here)
+pgdata/
+osrm-data/
