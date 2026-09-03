@@ -353,11 +353,11 @@ button {
 }
 .map-mode-card {
   position: absolute;
-  top: 12px;
-  left: 12px;
+  bottom: 32px;
+  right: 12px;
   z-index: 1250;
-  width: min(320px, calc(100% - 24px));
-  padding: 14px 16px;
+  width: min(240px, calc(100% - 24px));
+  padding: 12px 14px;
   border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(148, 163, 184, 0.2);

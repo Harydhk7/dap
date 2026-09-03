@@ -373,13 +373,6 @@ export default function App() {
             <span className="dot" />
             Dynamic Ambulance positioning
           </div>
-          <button
-            className={`btn ${measureMode ? "btn-active" : ""}`}
-            onClick={handleToggleMeasureMode}
-            type="button"
-          >
-            {measureMode ? "Exit Measure" : "Measure distance"}
-          </button>
         </div>
         <div className="topnav-actions">
           <button
@@ -409,29 +402,25 @@ export default function App() {
 
         <div className="map-container" style={{ minHeight: mapMinHeight }}>
           <div className="map-mode-card">
-            <div className="map-mode-card__title">Distance measurement</div>
-            <div className="map-mode-card__body">
-              {measureMode ? (
-                measurementPoints.length === 0 ? (
-                  "Click on the map to place point 1."
-                ) : measurementPoints.length === 1 ? (
-                  "Click on the map to place point 2."
-                ) : (
-                  <>
-                    <div className="map-mode-card__distance">{measurementDistance?.toFixed(2)} km</div>
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-inline"
-                      onClick={handleClearMeasurement}
-                    >
-                      Clear measurement
-                    </button>
-                  </>
-                )
-              ) : (
-                "Click Measure distance to start measuring."
-              )}
-            </div>
+            <button
+              className={`btn btn-inline ${measureMode ? "btn-active" : ""}`}
+              onClick={handleToggleMeasureMode}
+              type="button"
+            >
+              {measureMode ? "Exit Measure" : "Measure distance"}
+            </button>
+            {measureMode && measurementDistance !== null && (
+              <div className="map-mode-card__body" style={{ marginTop: 10 }}>
+                <div className="map-mode-card__distance">{measurementDistance.toFixed(2)} km</div>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-inline"
+                  onClick={handleClearMeasurement}
+                >
+                  Clear
+                </button>
+              </div>
+            )}
           </div>
           <div className="hospital-overlay-stack" ref={overlayStackRef}>
             {selectedAmbulance && (
