@@ -376,6 +376,13 @@ export default function App() {
         </div>
         <div className="topnav-actions">
           <button
+            className={`btn btn-inline ${measureMode ? "btn-active" : "btn-secondary"}`}
+            onClick={handleToggleMeasureMode}
+            type="button"
+          >
+            {measureMode ? "Exit Measure" : "Measure distance"}
+          </button>
+          <button
             className="btn btn-secondary btn-inline"
             onClick={() => api.downloadFilteredAmbulances(filters).catch((e) => showToast(e.message, "error"))}
           >
@@ -401,27 +408,18 @@ export default function App() {
         />
 
         <div className="map-container" style={{ minHeight: mapMinHeight }}>
-          <div className="map-mode-card">
-            <button
-              className={`btn btn-inline ${measureMode ? "btn-active" : ""}`}
-              onClick={handleToggleMeasureMode}
-              type="button"
-            >
-              {measureMode ? "Exit Measure" : "Measure distance"}
-            </button>
-            {measureMode && measurementDistance !== null && (
-              <div className="map-mode-card__body" style={{ marginTop: 10 }}>
-                <div className="map-mode-card__distance">{measurementDistance.toFixed(2)} km</div>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-inline"
-                  onClick={handleClearMeasurement}
-                >
-                  Clear
-                </button>
-              </div>
-            )}
-          </div>
+          {measureMode && measurementDistance !== null && (
+            <div className="map-mode-card">
+              <div className="map-mode-card__distance">{measurementDistance.toFixed(2)} km</div>
+              <button
+                type="button"
+                className="btn btn-secondary btn-inline"
+                onClick={handleClearMeasurement}
+              >
+                Clear
+              </button>
+            </div>
+          )}
           <div className="hospital-overlay-stack" ref={overlayStackRef}>
             {selectedAmbulance && (
               <RecommendationCard
