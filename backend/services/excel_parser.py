@@ -69,30 +69,39 @@ def _sheet_frame(excel_file, sheet_name):
 
 def parse_ambulances(file_path_or_stream) -> list[dict]:
     df = pd.read_excel(file_path_or_stream)
-    missing = AMBULANCE_REQUIRED_COLS - set(df.columns)
-    if missing:
-        raise ExcelValidationError(f"Missing required columns: {missing}")
+    optimized_columns = {"Uniqueid", "state", "day", "Timeperiod", "latitude", "longitude"}
+    is_optimized = optimized_columns.issubset(set(df.columns))
+    if not is_optimized:
+        missing = AMBULANCE_REQUIRED_COLS - set(df.columns)
+        if missing:
+            raise ExcelValidationError(f"Missing required columns: {missing}")
 
     records = []
     for _, row in df.iterrows():
         try:
-            lat = float(row["Latitude"])
-            lon = float(row["Longitude"])
+            lat = float(row["latitude"] if is_optimized else row["Latitude"])
+            lon = float(row["longitude"] if is_optimized else row["Longitude"])
         except (TypeError, ValueError):
             continue
 
+        def value(*columns):
+            for column in columns:
+                if column in row.index and pd.notna(row[column]):
+                    return str(row[column]).strip() or None
+            return None
+
         records.append({
             "unique_id": int(row["Uniqueid"]),
-            "day": str(row["Day"]).strip() if pd.notna(row["Day"]) else None,
-            "time_period": str(row["Timeperiod"]).strip() if pd.notna(row["Timeperiod"]) else None,
-            "country": str(row["Country"]).strip() if pd.notna(row["Country"]) else None,
-            "state": str(row["State"]).strip() if pd.notna(row["State"]) else None,
-            "district": str(row["District"]).strip() if pd.notna(row["District"]) else None,
-            "city": str(row["City"]).strip() if pd.notna(row["City"]) else None,
-            "postal_code": str(row["Postal Code"]).strip() if pd.notna(row["Postal Code"]) else None,
+            "day": value("day", "Day"),
+            "time_period": value("Timeperiod"),
+            "country": value("country", "Country"),
+            "state": value("state", "State"),
+            "district": value("District", "city"),
+            "city": value("city", "City"),
+            "postal_code": value("postal_code", "Postal Code"),
             "latitude": lat,
             "longitude": lon,
-            "address": str(row["Address"]).strip() if pd.notna(row["Address"]) else None,
+            "address": value("full_address", "Address"),
         })
     return records
 

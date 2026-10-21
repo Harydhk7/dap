@@ -343,6 +343,16 @@ def _ambulance_to_feature(row):
     return _geojson_feature_point(row["longitude"], row["latitude"], props)
 
 
+def _hotspot_to_feature(row):
+    props = dict(row)
+    geometry = json.loads(props.pop("geometry"))
+    return {
+        "type": "Feature",
+        "geometry": geometry,
+        "properties": props,
+    }
+
+
 def _hospital_to_feature(row):
     props = dict(row)
     lon = props.pop("longitude")
@@ -549,19 +559,35 @@ def filter_options():
             hour += 12
         return hour
 
+    state = request.args.get("state")
+    state_clause = ""
+    params = {}
+    if state and state.lower() != "all":
+        state_clause = " WHERE state ILIKE :state"
+        params["state"] = state
+
     with engine.connect() as conn:
         states = [r[0] for r in conn.execute(
             text("SELECT DISTINCT state FROM ambulances WHERE state IS NOT NULL ORDER BY state")
         )]
         districts = [r[0] for r in conn.execute(
-            text("SELECT DISTINCT district FROM ambulances WHERE district IS NOT NULL ORDER BY district")
+            text(f"SELECT DISTINCT district FROM ambulances{state_clause} "
+                 "AND district IS NOT NULL ORDER BY district" if state_clause
+                 else "SELECT DISTINCT district FROM ambulances WHERE district IS NOT NULL ORDER BY district"),
+            params,
         )]
         days = [r[0] for r in conn.execute(
-            text("SELECT DISTINCT day FROM ambulances WHERE day IS NOT NULL ORDER BY day")
+            text(f"SELECT DISTINCT day FROM ambulances{state_clause} "
+                 "AND day IS NOT NULL ORDER BY day" if state_clause
+                 else "SELECT DISTINCT day FROM ambulances WHERE day IS NOT NULL ORDER BY day"),
+            params,
         )]
         time_periods = sorted(
             [r[0] for r in conn.execute(
-                text("SELECT DISTINCT time_period FROM ambulances WHERE time_period IS NOT NULL")
+                text(f"SELECT DISTINCT time_period FROM ambulances{state_clause} "
+                     "AND time_period IS NOT NULL" if state_clause
+                     else "SELECT DISTINCT time_period FROM ambulances WHERE time_period IS NOT NULL"),
+                params,
             )],
             key=_sort_time_period,
         )
@@ -611,8 +637,23 @@ def list_ambulances():
     where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
     sql = text(f"""
         SELECT unique_id, day, time_period, country, state, district, city,
-               postal_code, latitude, longitude, address
+               postal_code, latitude, longitude, address,
+               hotspot_id, hotspot_state, hotspot_district,
+               hotspot_station, hotspot_final_id
         FROM ambulances
+        LEFT JOIN LATERAL (
+            SELECT h.hotspot_id, h.state_name AS hotspot_state,
+                   h.hotspot_district, h.station AS hotspot_station,
+                   h.final_id AS hotspot_final_id
+            FROM hotspots h
+            WHERE UPPER(h.state_name) = UPPER(ambulances.state)
+              AND ST_Intersects(
+                  h.geom,
+                  ST_SetSRID(ST_MakePoint(ambulances.longitude, ambulances.latitude), 4326)
+              )
+            ORDER BY h.hotspot_id
+            LIMIT 1
+        ) matched_hotspot ON TRUE
         {where}
         ORDER BY unique_id
     """)
@@ -629,12 +670,89 @@ def list_ambulances():
     return jsonify({"type": "FeatureCollection", "features": features})
 
 
+@app.get("/api/hotspots")
+def list_hotspots():
+    state = request.args.get("state")
+    districts = _multi_query_values("district")
+    days = _multi_query_values("day")
+    time_periods = _multi_query_values("time_period")
+    params = {}
+    filters = []
+    if state and state.lower() != "all":
+        filters.append("UPPER(h.state_name) = UPPER(:state)")
+        params["state"] = state
+    if districts or days or time_periods:
+        ambulance_filters = ["UPPER(selected_ambulance.state) = UPPER(h.state_name)"]
+        if districts:
+            ambulance_filters.append("selected_ambulance.district IN :districts")
+            params["districts"] = districts
+        if days:
+            ambulance_filters.append("selected_ambulance.day IN :days")
+            params["days"] = days
+        if time_periods:
+            ambulance_filters.append("selected_ambulance.time_period IN :time_periods")
+            params["time_periods"] = time_periods
+        filters.append("""
+            EXISTS (
+                SELECT 1
+                FROM ambulances selected_ambulance
+                WHERE {ambulance_conditions}
+                  AND ST_Intersects(
+                      h.geom,
+                      ST_SetSRID(
+                          ST_MakePoint(
+                              selected_ambulance.longitude,
+                              selected_ambulance.latitude
+                          ),
+                          4326
+                      )
+                  )
+            )
+        """.format(
+            ambulance_conditions=" AND ".join(ambulance_filters)
+        ))
+    where = f"WHERE {' AND '.join(filters)}" if filters else ""
+    with engine.connect() as conn:
+        sql = text(f"""
+            SELECT h.hotspot_id, h.state_name, h.hotspot_district, h.station,
+                   h.final_id, h.hotspot_day, h.time_period, h.fatalities,
+                   h.total_crashes, h.latitude, h.longitude,
+                   ST_AsGeoJSON(h.geom) AS geometry,
+                   COUNT(a.unique_id) AS matched_ambulance_count
+            FROM hotspots h
+            LEFT JOIN ambulances a
+              ON UPPER(h.state_name) = UPPER(a.state)
+             AND ST_Intersects(
+                 h.geom,
+                 ST_SetSRID(ST_MakePoint(a.longitude, a.latitude), 4326)
+             )
+            {where}
+            GROUP BY h.hotspot_id, h.state_name, h.hotspot_district, h.station,
+                     h.final_id, h.hotspot_day, h.time_period, h.fatalities,
+                     h.total_crashes, h.latitude, h.longitude, h.geom
+            ORDER BY h.hotspot_id
+        """)
+        if districts:
+            sql = sql.bindparams(bindparam("districts", expanding=True))
+        if days:
+            sql = sql.bindparams(bindparam("days", expanding=True))
+        if time_periods:
+            sql = sql.bindparams(bindparam("time_periods", expanding=True))
+        rows = conn.execute(sql, params).fetchall()
+    return jsonify({
+        "type": "FeatureCollection",
+        "features": [_hotspot_to_feature(r._mapping) for r in rows],
+    })
+
+
 @app.get("/api/ambulances/<int:uid>")
 def get_ambulance(uid):
     with engine.connect() as conn:
         row = conn.execute(
             text("""SELECT unique_id, day, time_period, country, state, district, city,
-                           postal_code, latitude, longitude, address
+                           postal_code, latitude, longitude, address,
+                           hotspot_id, hotspot_state, hotspot_district,
+                           hotspot_station, hotspot_final_id
                     FROM ambulances WHERE unique_id = :uid"""),
             {"uid": uid}
         ).fetchone()

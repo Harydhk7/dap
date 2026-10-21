@@ -26,7 +26,9 @@ DATABASE_URL = os.environ.get(
 )
 DATA_DIR = Path(__file__).parent / "data"
 AMBULANCES_XLSX = DATA_DIR / "ambulances_haryana.xlsx"
+OPTIMIZED_AMBULANCES_XLSX = DATA_DIR / "ambulances_optimized.xlsx"
 DISTRICTS_GEOJSON = DATA_DIR / "haryana_districts.geojson"
+HOTSPOTS_GEOJSON = DATA_DIR / "super_hotspots.geojson"
 HOSPITALS_WORKBOOK = DATA_DIR / "Hospital_data.xlsx"
 ROOT_HOSPITALS_WORKBOOK = Path(__file__).resolve().parents[1] / "Hospital_data (1).xlsx"
 DISTRICT_GEOJSON_URLS = [
@@ -69,6 +71,24 @@ CREATE TABLE ambulances (
 CREATE INDEX idx_amb_geom ON ambulances USING GIST (geom);
 CREATE INDEX idx_amb_district ON ambulances (district);
 CREATE INDEX idx_amb_day_time ON ambulances (day, time_period);
+
+DROP TABLE IF EXISTS hotspots CASCADE;
+CREATE TABLE hotspots (
+    hotspot_id       INTEGER PRIMARY KEY,
+    state_name       VARCHAR(128),
+    hotspot_district VARCHAR(128),
+    station          TEXT,
+    final_id         VARCHAR(255),
+    hotspot_day      VARCHAR(32),
+    time_period      VARCHAR(64),
+    fatalities       DOUBLE PRECISION,
+    total_crashes    DOUBLE PRECISION,
+    latitude         DOUBLE PRECISION,
+    longitude        DOUBLE PRECISION,
+    geom             GEOMETRY(MultiPolygon, 4326) NOT NULL
+);
+CREATE INDEX idx_hotspots_geom ON hotspots USING GIST (geom);
+CREATE INDEX idx_hotspots_state ON hotspots (state_name);
 
 DROP TABLE IF EXISTS districts CASCADE;
 CREATE TABLE districts (
@@ -127,10 +147,11 @@ def init_schema(engine):
 
 
 def seed_ambulances(engine):
-    if not AMBULANCES_XLSX.exists():
+    source = OPTIMIZED_AMBULANCES_XLSX if OPTIMIZED_AMBULANCES_XLSX.exists() else AMBULANCES_XLSX
+    if not source.exists():
         print(f"⚠ {AMBULANCES_XLSX} not found, skipping ambulances")
         return
-    records = parse_ambulances(AMBULANCES_XLSX)
+    records = parse_ambulances(source)
     by_id = {r["unique_id"]: r for r in records}
     deduped = list(by_id.values())
     with engine.begin() as conn:
@@ -152,6 +173,58 @@ def seed_ambulances(engine):
                     geom = EXCLUDED.geom
             """), r)
     print(f"Seeded {len(deduped)} ambulances")
+
+
+def seed_hotspots(engine):
+    if not HOTSPOTS_GEOJSON.exists():
+        print(f"{HOTSPOTS_GEOJSON} not found, skipping hotspot polygons")
+        return
+    features = _load_geojson_features(HOTSPOTS_GEOJSON)
+    with engine.begin() as conn:
+        for index, feature in enumerate(features, start=1):
+            props = feature.get("properties") or {}
+            geometry = feature.get("geometry")
+            if not geometry:
+                continue
+            hotspot_id = int(props.get("mergeid") or index)
+            conn.execute(text("""
+                INSERT INTO hotspots (
+                    hotspot_id, state_name, hotspot_district, station, final_id,
+                    hotspot_day, time_period, fatalities, total_crashes,
+                    latitude, longitude, geom
+                ) VALUES (
+                    :hotspot_id, :state_name, :hotspot_district, :station, :final_id,
+                    :hotspot_day, :time_period, :fatalities, :total_crashes,
+                    :latitude, :longitude,
+                    ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON(:geometry), 4326))
+                )
+                ON CONFLICT (hotspot_id) DO UPDATE SET
+                    state_name = EXCLUDED.state_name,
+                    hotspot_district = EXCLUDED.hotspot_district,
+                    station = EXCLUDED.station,
+                    final_id = EXCLUDED.final_id,
+                    hotspot_day = EXCLUDED.hotspot_day,
+                    time_period = EXCLUDED.time_period,
+                    fatalities = EXCLUDED.fatalities,
+                    total_crashes = EXCLUDED.total_crashes,
+                    latitude = EXCLUDED.latitude,
+                    longitude = EXCLUDED.longitude,
+                    geom = EXCLUDED.geom
+            """), {
+                "hotspot_id": hotspot_id,
+                "state_name": props.get("ST"),
+                "hotspot_district": props.get("DS"),
+                "station": props.get("PS") or props.get("station"),
+                "final_id": props.get("Final_ID"),
+                "hotspot_day": props.get("day"),
+                "time_period": props.get("Timeperiod"),
+                "fatalities": props.get("fatalities"),
+                "total_crashes": props.get("totalcrashes"),
+                "latitude": props.get("latitude"),
+                "longitude": props.get("longitude"),
+                "geometry": json.dumps(geometry),
+            })
+    print(f"Seeded {len(features)} hotspot polygons")
 
 
 def _ensure_hospitals_workbook():
@@ -323,6 +396,7 @@ def main():
     init_schema(engine)
     seed_districts(engine)
     seed_ambulances(engine)
+    seed_hotspots(engine)
     seed_hospitals(engine)
     print("\nAll done.")
 

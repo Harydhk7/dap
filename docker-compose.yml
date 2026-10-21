@@ -29,6 +29,18 @@ services:
       PORT: 5001
     ports:
       - "5001:5001"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:5001/api/health', timeout=3)"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
     depends_on:
       db:
         condition: service_healthy
@@ -42,7 +54,8 @@ services:
     ports:
       - "3000:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
   # Optional: self-hosted OSRM. Uncomment after building the .osrm graph.
   # See README "Self-hosted OSRM" section for the one-time graph build steps.

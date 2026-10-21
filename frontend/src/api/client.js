@@ -29,8 +29,15 @@ async function download(path, filename) {
 export const api = {
   health:        () => request("/api/health"),
   patientInjuries: () => request("/api/patient-injuries"),
-  filterOptions: () => request("/api/filters/options"),
+  filterOptions: (state = "All") => request(`/api/filters/options?state=${encodeURIComponent(state)}`),
   districts:     (state = "Haryana") => request(`/api/districts?state=${encodeURIComponent(state)}`),
+  hotspots:      (state = "all", districts = [], days = [], timePeriods = []) => {
+    const qs = new URLSearchParams({ state });
+    districts.forEach((district) => qs.append("district", district));
+    days.forEach((day) => qs.append("day", day));
+    timePeriods.forEach((timePeriod) => qs.append("time_period", timePeriod));
+    return request(`/api/hotspots?${qs.toString()}`);
+  },
   hospitalsNearby: (ambulanceId, radiusKm = 50) => request(`/api/hospitals/nearby?ambulance_id=${encodeURIComponent(ambulanceId)}&radius_km=${encodeURIComponent(radiusKm)}`),
   recommendHospitals: (ambulanceId, injuryKey, radiusKm = 50) => request(`/api/recommend-hospitals?ambulance_id=${encodeURIComponent(ambulanceId)}&injury_type=${encodeURIComponent(injuryKey)}&radius_km=${encodeURIComponent(radiusKm)}`),
   ambulanceRecommendation: (ambulanceId, injuryKey) => request(`/api/ambulances/${encodeURIComponent(ambulanceId)}/recommendation`, {

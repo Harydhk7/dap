@@ -87,6 +87,7 @@ export default function App() {
   });
   const [ambulances, setAmbulances] = useState(null);
   const [districts, setDistricts] = useState(null);
+  const [hotspots, setHotspots] = useState(null);
   const [indiaBoundary, setIndiaBoundary] = useState(null);
   const [nearbyHospitals, setNearbyHospitals] = useState(null);
   const [showUpload, setShowUpload] = useState(false);
@@ -108,8 +109,14 @@ export default function App() {
   const [mapMinHeight, setMapMinHeight] = useState("calc(100vh - 60px)");
 
   useEffect(() => {
-    api.filterOptions().then(setFilterOptions).catch(console.error);
-    api.districts("Haryana").then(setDistricts).catch(console.error);
+    let active = true;
+    api.filterOptions(filters.state).then(setFilterOptions).catch(console.error);
+    api.districts(filters.state).then(setDistricts).catch(console.error);
+    api.hotspots(filters.state, filters.district, filters.day, filters.time_period)
+      .then((data) => {
+        if (active) setHotspots(data);
+      })
+      .catch(console.error);
     api.patientInjuries().then((items) => {
       setInjuryOptions(items || []);
       if (!(items || []).some((item) => item.key === selectedInjuryKey) && items?.length) {
@@ -120,7 +127,10 @@ export default function App() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => setIndiaBoundary(data))
       .catch(() => setIndiaBoundary(null));
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [filters.state, filters.district, filters.day, filters.time_period]);
 
   useEffect(() => {
     const node = overlayStackRef.current;
@@ -164,7 +174,11 @@ export default function App() {
   };
 
   const handleFilterChange = (key, value) => {
-    setFilters((f) => ({ ...f, [key]: value }));
+    setFilters((f) => ({
+      ...f,
+      [key]: value,
+      ...(key === "state" ? { district: [] } : {}),
+    }));
     setSelectedAmbulance(null);
     setSelectedHospital(null);
     setNearbyHospitals(null);
@@ -542,6 +556,7 @@ export default function App() {
           <div className="map-surface">
             <MapView
               ambulances={ambulances}
+              hotspots={hotspots}
               indiaBoundary={indiaBoundary}
               districts={districts}
               selectedDistricts={selectedDistricts}

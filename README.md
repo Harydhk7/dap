@@ -1,6 +1,8 @@
 # AmbuMap — Ambulance baseline
 
-Visualization of ambulance positions across Haryana with State / District / Day / Time-period filters.
+Visualization of ambulance positions with State / District / Day / Time-period filters,
+super-hotspot polygon overlays, and a coordinate-based spatial join between the two
+datasets.
 
 This is the **ambulance-only baseline** for the AmbuMap project. Hospital ingestion,
 level classification (L1 / L2 / L3 from TPL audit), 50&nbsp;km routing, and the
@@ -54,6 +56,10 @@ Then open:
 - Backend: http://localhost:5001/api/health
 - Postgres: localhost:5432
 
+The backend seeds the ambulance and hotspot data before it starts listening.
+Compose waits for `/api/health` before starting the frontend, so a freshly
+rebuilt stack may take a little time before port 3000 is ready.
+
 The backend container seeds the database on startup, so the first boot may take a
 little longer than a normal restart.
 
@@ -64,6 +70,7 @@ little longer than a normal restart.
 | GET  | `/api/health`              | health check |
 | GET  | `/api/filters/options`     | distinct values for state / district / day / time dropdowns |
 | GET  | `/api/districts?state=Haryana` | GeoJSON of district polygons |
+| GET  | `/api/hotspots?state=all` | GeoJSON of super-hotspot polygons with matched ambulance counts |
 | GET  | `/api/ambulances?state=&district=&day=&time_period=` | filtered list (GeoJSON FeatureCollection) |
 | GET  | `/api/ambulances/<id>`     | single ambulance |
 | POST | `/api/upload/ambulances`   | multipart `.xlsx` upload |
@@ -78,6 +85,24 @@ Uniqueid | Day | Timeperiod | Country | State | District | City | Postal Code | 
 
 The sample file `backend/data/ambulances_haryana.xlsx` (142 rows across 20 Haryana districts)
 is preloaded by `seed.py`.
+
+## Hotspot spatial join
+
+The optimized ambulance workbook and the super-hotspot GeoJSON are seeded into
+PostGIS as separate datasets:
+
+- `ambulances.geom`: point geometry from the ambulance latitude/longitude
+- `hotspots.geom`: polygon geometry from `super_hotspots.geojson`
+
+An ambulance is assigned to a hotspot only when its point intersects the polygon
+and the normalized state names match. District names are deliberately not used as
+a join key because the two sources use different district classifications. The
+`/api/hotspots` response includes `matched_ambulance_count`, and ambulance features
+include `hotspot_id`, `hotspot_state`, `hotspot_district`, `hotspot_station`, and
+`hotspot_final_id` when a spatial match exists.
+
+The frontend draws hotspot polygons first, then the existing district boundaries,
+ambulance markers, and hospital markers, so all layers remain visible together.
 
 ## What to build next (suggested order)
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from "react";
 import {
-  MapContainer, TileLayer, GeoJSON, Marker, Popup, useMap, Circle, Polyline, CircleMarker, useMapEvents,
+  MapContainer, TileLayer, GeoJSON, Marker, Popup, useMap, Circle, Polyline, CircleMarker, useMapEvents, Pane,
 } from "react-leaflet";
 import L from "leaflet";
 
@@ -37,6 +37,7 @@ function MapClickHandler({ measureMode, onMapClick }) {
 
 export default function MapView({
   ambulances,
+  hotspots,
   indiaBoundary,
   districts,
   selectedDistricts,
@@ -72,7 +73,7 @@ export default function MapView({
         }
       });
 
-      return bounds;
+      if (bounds?.isValid()) return bounds;
     }
     if (selectedAmbulance?.geometry?.coordinates) {
       const [lon, lat] = selectedAmbulance.geometry.coordinates;
@@ -91,8 +92,12 @@ export default function MapView({
       }
       return bounds;
     }
+    if (hotspots?.features?.length) {
+      const bounds = L.geoJSON(hotspots).getBounds();
+      if (bounds.isValid()) return bounds;
+    }
     return null;
-  }, [selectedDistricts, districts, selectedAmbulance, nearbyHospitals, route]);
+  }, [selectedDistricts, districts, selectedAmbulance, nearbyHospitals, route, hotspots]);
 
   // Expand fitBounds to include route geometry when available
   useEffect(() => {
@@ -123,6 +128,14 @@ export default function MapView({
     opacity: 0.9,
     lineCap: "round",
     lineJoin: "round",
+  };
+
+  const hotspotStyle = {
+    color: "#5B21B6",
+    weight: 2,
+    fillColor: "#8B5CF6",
+    fillOpacity: 0.38,
+    opacity: 1,
   };
 
   const createAmbulanceIcon = (selected = false) => L.divIcon({
@@ -205,6 +218,40 @@ export default function MapView({
           data={districts}
           style={districtStyle}
         />
+      )}
+
+      {hotspots && (
+        <Pane name="hotspots" style={{ zIndex: 450 }}>
+          <GeoJSON
+            key="super-hotspots"
+            data={hotspots}
+            style={hotspotStyle}
+            onEachFeature={(feature, layer) => {
+              const properties = feature.properties || {};
+              layer.bindPopup(`
+                <div class="marker-popup">
+                  <strong>Super hotspot ${properties.final_id || properties.hotspot_id}</strong>
+                  <div class="meta">${properties.state_name || ""} · ${properties.hotspot_district || ""}</div>
+                  <div class="meta">Crashes: ${properties.total_crashes ?? "—"} · Fatalities: ${properties.fatalities ?? "—"}</div>
+                  <div class="meta">Ambulances in polygon: ${properties.matched_ambulance_count ?? 0}</div>
+                </div>
+              `);
+            }}
+          />
+        </Pane>
+      )}
+
+      {hotspots?.features?.length > 0 && (
+        <div className="map-legend">
+          <div className="map-legend__row">
+            <span className="map-legend__swatch map-legend__swatch--hotspot" />
+            <span>Super-hotspot polygon ({hotspots.features.length})</span>
+          </div>
+          <div className="map-legend__row">
+            <span className="map-legend__swatch map-legend__swatch--ambulance" />
+            <span>Ambulance</span>
+          </div>
+        </div>
       )}
 
       {ambulances?.features?.map((f) => (
