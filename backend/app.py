@@ -603,10 +603,16 @@ def filter_options():
 @app.get("/api/districts")
 def districts():
     state = request.args.get("state", "Haryana")
+    state_filter = ""
+    params = {}
+    if state and state.lower() != "all":
+        state_filter = "WHERE state ILIKE :state"
+        params["state"] = state
     with engine.connect() as conn:
         rows = conn.execute(
-            text("SELECT name, state, ST_AsGeoJSON(geom) AS geom FROM districts WHERE state = :state"),
-            {"state": state}
+            text(f"SELECT name, state, ST_AsGeoJSON(geom) AS geom "
+                 f"FROM districts {state_filter} ORDER BY state, name"),
+            params,
         ).fetchall()
 
     features = [{

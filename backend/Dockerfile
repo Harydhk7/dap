@@ -13,6 +13,7 @@ COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ ./
+COPY ["Hospital_data (1).xlsx", "./data/Hospital_data.xlsx"]
 
 EXPOSE 5001
 

@@ -63,6 +63,10 @@ rebuilt stack may take a little time before port 3000 is ready.
 The backend container seeds the database on startup, so the first boot may take a
 little longer than a normal restart.
 
+The hospital workbook must be present at the repository root as
+`Hospital_data (1).xlsx` when building the backend image. It is copied into
+`backend/data/Hospital_data.xlsx` and loaded by `seed.py` during startup.
+
 ## API endpoints
 
 | Method | Endpoint | Purpose |

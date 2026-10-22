@@ -302,7 +302,7 @@ def seed_districts(engine):
         return
 
     with engine.begin() as conn:
-        conn.execute(text("DELETE FROM districts WHERE state = 'Haryana'"))
+        conn.execute(text("DELETE FROM districts"))
         inserted = 0
         for feat in features:
             geom = feat.get("geometry")
@@ -312,13 +312,15 @@ def seed_districts(engine):
             name = (props.get("DISTRICT") or props.get("district") or
                     props.get("NAME_2") or props.get("name") or
                     props.get("DIST_NAME") or props.get("dtname") or "Unknown")
+            state_name = (props.get("ST_NM") or props.get("state") or
+                          props.get("STATE") or props.get("ST") or "Unknown")
             geom_json = json.dumps(geom)
             try:
                 conn.execute(text("""
                     INSERT INTO districts (name, state, geom)
-                    VALUES (:name, 'Haryana',
+                    VALUES (:name, :state,
                             ST_Multi(ST_GeomFromGeoJSON(:geom)))
-                """), {"name": name, "geom": geom_json})
+                """), {"name": name, "state": state_name, "geom": geom_json})
                 inserted += 1
             except Exception as e:
                 print(f"  skipped '{name}': {e}")
