@@ -41,6 +41,7 @@ export default function MapView({
   hotspotLayerKey,
   districtLayerKey,
   indiaBoundary,
+  stateBoundaries,
   districts,
   selectedDistricts,
   selectedAmbulance,
@@ -132,6 +133,15 @@ export default function MapView({
     lineJoin: "round",
   };
 
+  const stateBoundaryStyle = {
+    color: "#0F766E",
+    weight: 2.2,
+    fillOpacity: 0,
+    opacity: 0.9,
+    lineCap: "round",
+    lineJoin: "round",
+  };
+
   const hotspotStyle = {
     color: "#5B21B6",
     weight: 3,
@@ -203,6 +213,18 @@ export default function MapView({
           key="india-boundary"
           data={indiaBoundary}
           style={indiaStyle}
+        />
+      )}
+
+      {stateBoundaries && (
+        <GeoJSON
+          key="india-state-boundaries"
+          data={stateBoundaries}
+          style={stateBoundaryStyle}
+          onEachFeature={(feature, layer) => {
+            const state = feature.properties?.state;
+            if (state) layer.bindTooltip(state, { sticky: true });
+          }}
         />
       )}
 

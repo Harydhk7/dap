@@ -89,6 +89,7 @@ export default function App() {
   const [districts, setDistricts] = useState(null);
   const [hotspots, setHotspots] = useState(null);
   const [indiaBoundary, setIndiaBoundary] = useState(null);
+  const [stateBoundaries, setStateBoundaries] = useState(null);
   const [nearbyHospitals, setNearbyHospitals] = useState(null);
   const [showUpload, setShowUpload] = useState(false);
   const [selectedAmbulance, setSelectedAmbulance] = useState(null);
@@ -123,10 +124,14 @@ export default function App() {
         setSelectedInjuryKey(items[0].key);
       }
     }).catch(console.error);
-    fetch("/haryana_outline.geojson")
+    fetch("/india_boundary.geojson")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => setIndiaBoundary(data))
       .catch(() => setIndiaBoundary(null));
+    fetch("/india_states.geojson")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setStateBoundaries(data))
+      .catch(() => setStateBoundaries(null));
     return () => {
       active = false;
     };
@@ -570,6 +575,7 @@ export default function App() {
                 ...(filters.district || []),
               ].join("|")}
               indiaBoundary={indiaBoundary}
+              stateBoundaries={stateBoundaries}
               districts={districts}
               selectedDistricts={selectedDistricts}
               selectedAmbulance={selectedAmbulance}
