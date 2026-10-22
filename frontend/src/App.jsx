@@ -565,6 +565,10 @@ export default function App() {
                 ...(filters.day || []),
                 ...(filters.time_period || []),
               ].join("|")}
+              districtLayerKey={[
+                filters.state,
+                ...(filters.district || []),
+              ].join("|")}
               indiaBoundary={indiaBoundary}
               districts={districts}
               selectedDistricts={selectedDistricts}

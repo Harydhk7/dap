@@ -39,6 +39,7 @@ export default function MapView({
   ambulances,
   hotspots,
   hotspotLayerKey,
+  districtLayerKey,
   indiaBoundary,
   districts,
   selectedDistricts,
@@ -215,7 +216,7 @@ export default function MapView({
 
       {districts && (
         <GeoJSON
-          key={(selectedDistricts || []).join("|") || "all"}
+          key={`districts-${districtLayerKey || "all"}`}
           data={districts}
           style={districtStyle}
         />
