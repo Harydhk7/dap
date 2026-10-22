@@ -182,6 +182,7 @@ export default function App() {
     setSelectedAmbulance(null);
     setSelectedHospital(null);
     setNearbyHospitals(null);
+    setHotspots(null);
   };
 
   const handleClearFilters = () => {
@@ -189,6 +190,7 @@ export default function App() {
     setSelectedAmbulance(null);
     setSelectedHospital(null);
     setNearbyHospitals(null);
+    setHotspots(null);
     setRoute(null);
     setMeasureMode(false);
     setMeasurementPoints([]);
@@ -557,6 +559,12 @@ export default function App() {
             <MapView
               ambulances={ambulances}
               hotspots={hotspots}
+              hotspotLayerKey={[
+                filters.state,
+                ...(filters.district || []),
+                ...(filters.day || []),
+                ...(filters.time_period || []),
+              ].join("|")}
               indiaBoundary={indiaBoundary}
               districts={districts}
               selectedDistricts={selectedDistricts}

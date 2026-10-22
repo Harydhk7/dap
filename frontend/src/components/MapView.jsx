@@ -38,6 +38,7 @@ function MapClickHandler({ measureMode, onMapClick }) {
 export default function MapView({
   ambulances,
   hotspots,
+  hotspotLayerKey,
   indiaBoundary,
   districts,
   selectedDistricts,
@@ -132,9 +133,9 @@ export default function MapView({
 
   const hotspotStyle = {
     color: "#5B21B6",
-    weight: 2,
+    weight: 3,
     fillColor: "#8B5CF6",
-    fillOpacity: 0.38,
+    fillOpacity: 0.57,
     opacity: 1,
   };
 
@@ -223,7 +224,7 @@ export default function MapView({
       {hotspots && (
         <Pane name="hotspots" style={{ zIndex: 450 }}>
           <GeoJSON
-            key="super-hotspots"
+            key={`super-hotspots-${hotspotLayerKey || "initial"}`}
             data={hotspots}
             style={hotspotStyle}
             onEachFeature={(feature, layer) => {
