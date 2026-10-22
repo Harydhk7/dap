@@ -83,8 +83,9 @@ Required columns, exact spelling:
 Uniqueid | Day | Timeperiod | Country | State | District | City | Postal Code | Latitude | Longitude | Address
 ```
 
-The sample file `backend/data/ambulances_haryana.xlsx` (142 rows across 20 Haryana districts)
-is preloaded by `seed.py`.
+The optimized ambulance CSV `backend/data/ambulances_optimized.csv` is preferred by
+`seed.py` and contains the authoritative `District` values used by the filters.
+The older `.xlsx` files remain supported as fallbacks.
 
 ## Hotspot spatial join
 

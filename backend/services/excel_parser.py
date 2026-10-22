@@ -68,7 +68,8 @@ def _sheet_frame(excel_file, sheet_name):
 
 
 def parse_ambulances(file_path_or_stream) -> list[dict]:
-    df = pd.read_excel(file_path_or_stream)
+    source_name = str(getattr(file_path_or_stream, "name", file_path_or_stream)).lower()
+    df = pd.read_csv(file_path_or_stream) if source_name.endswith(".csv") else pd.read_excel(file_path_or_stream)
     optimized_columns = {"Uniqueid", "state", "day", "Timeperiod", "latitude", "longitude"}
     is_optimized = optimized_columns.issubset(set(df.columns))
     if not is_optimized:

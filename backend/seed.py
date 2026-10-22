@@ -26,6 +26,7 @@ DATABASE_URL = os.environ.get(
 )
 DATA_DIR = Path(__file__).parent / "data"
 AMBULANCES_XLSX = DATA_DIR / "ambulances_haryana.xlsx"
+OPTIMIZED_AMBULANCES_CSV = DATA_DIR / "ambulances_optimized.csv"
 OPTIMIZED_AMBULANCES_XLSX = DATA_DIR / "ambulances_optimized.xlsx"
 DISTRICTS_GEOJSON = DATA_DIR / "haryana_districts.geojson"
 HOTSPOTS_GEOJSON = DATA_DIR / "super_hotspots.geojson"
@@ -147,7 +148,13 @@ def init_schema(engine):
 
 
 def seed_ambulances(engine):
-    source = OPTIMIZED_AMBULANCES_XLSX if OPTIMIZED_AMBULANCES_XLSX.exists() else AMBULANCES_XLSX
+    source = (
+        OPTIMIZED_AMBULANCES_CSV
+        if OPTIMIZED_AMBULANCES_CSV.exists()
+        else OPTIMIZED_AMBULANCES_XLSX
+        if OPTIMIZED_AMBULANCES_XLSX.exists()
+        else AMBULANCES_XLSX
+    )
     if not source.exists():
         print(f"⚠ {AMBULANCES_XLSX} not found, skipping ambulances")
         return
