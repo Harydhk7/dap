@@ -26,10 +26,6 @@ cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# Optional: fetch a Haryana districts GeoJSON for the boundary overlay
-curl -L -o data/haryana_districts.geojson \
-  https://raw.githubusercontent.com/datameet/maps/master/States/Haryana/Haryana_District.geojson
-
 python seed.py     # creates schema, loads 142 ambulances + district outlines
 python app.py      # Flask on :5001
 
@@ -56,7 +52,10 @@ Then open:
 - Backend: http://localhost:5001/api/health
 - Postgres: localhost:5432
 
-The backend seeds the ambulance and hotspot data before it starts listening.
+The backend seeds the ambulance, hotspot, hospital, and all-India district
+boundary data before it starts listening. The district boundary source is the
+`datta07/INDIAN-SHAPEFILES` India district GeoJSON, which includes newer
+post-2022 districts such as Anakapalli.
 Compose waits for `/api/health` before starting the frontend, so a freshly
 rebuilt stack may take a little time before port 3000 is ready.
 

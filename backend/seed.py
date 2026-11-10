@@ -273,6 +273,42 @@ def _load_geojson_features(path):
 
 
 DISTRICT_STATE_NAMES = {
+    "ANDAMAN AND NICOBAR": "Andaman and Nicobar Islands",
+    "ANDAMAN AND NICOBAR ISLANDS": "Andaman and Nicobar Islands",
+    "ANDHRA PRADESH": "Andhra Pradesh",
+    "ARUNACHAL PRADESH": "Arunachal Pradesh",
+    "ASSAM": "Assam",
+    "BIHAR": "Bihar",
+    "CHHATTISGARH": "Chhattisgarh",
+    "DADRA & NAGAR HAVELI & DAMAN & DIU": "Dadra and Nagar Haveli and Daman and Diu",
+    "DELHI": "Delhi",
+    "GOA": "Goa",
+    "GUJARAT": "Gujarat",
+    "GUJARAT and DNH & DD ISLANDS": "Gujarat",
+    "HARYANA": "Haryana",
+    "HIMACHAL PRADESH": "Himachal Pradesh",
+    "JAMMU AND KASHMIR": "Jammu and Kashmir",
+    "JHARKHAND": "Jharkhand",
+    "KARNATAKA": "Karnataka",
+    "KERALA": "Kerala",
+    "LADAKH": "Ladakh",
+    "MADHYA PRADESH": "Madhya Pradesh",
+    "MAHARASHTRA": "Maharashtra",
+    "MANIPUR": "Manipur",
+    "MEGHALAYA": "Meghalaya",
+    "MIZORAM": "Mizoram",
+    "NAGALAND": "Nagaland",
+    "ODISHA": "Odisha",
+    "PUDUCHERRY": "Puducherry",
+    "PUNJAB": "Punjab",
+    "RAJASTHAN": "Rajasthan",
+    "SIKKIM": "Sikkim",
+    "TAMIL NADU": "Tamil Nadu",
+    "TELANGANA": "Telangana",
+    "TRIPURA": "Tripura",
+    "UTTAR PRADESH": "Uttar Pradesh",
+    "UTTARAKHAND": "Uttarakhand",
+    "WEST BENGAL": "West Bengal",
     "AndamanandNicobar": "Andaman and Nicobar Islands",
     "AndhraPradesh": "Andhra Pradesh",
     "ArunachalPradesh": "Arunachal Pradesh",
@@ -342,7 +378,9 @@ def seed_districts(engine):
             source_state = (props.get("ST_NM") or props.get("NAME_1") or
                             props.get("state") or
                           props.get("STATE") or props.get("ST") or "Unknown")
-            state_name = _canonical_district_state(source_state, name)
+            if not name or not source_state or name == "Unknown" or source_state == "Unknown":
+                continue
+            state_name = _canonical_district_state(str(source_state).strip(), name)
             geom_json = json.dumps(geom)
             try:
                 conn.execute(text("""
