@@ -28,7 +28,7 @@ DATA_DIR = Path(__file__).parent / "data"
 AMBULANCES_XLSX = DATA_DIR / "ambulances_haryana.xlsx"
 OPTIMIZED_AMBULANCES_CSV = DATA_DIR / "ambulances_optimized.csv"
 OPTIMIZED_AMBULANCES_XLSX = DATA_DIR / "ambulances_optimized.xlsx"
-DISTRICTS_GEOJSON = DATA_DIR / "haryana_districts.geojson"
+DISTRICTS_GEOJSON = DATA_DIR / "india_districts.geojson"
 HOTSPOTS_GEOJSON = DATA_DIR / "super_hotspots.geojson"
 HOSPITALS_WORKBOOK = DATA_DIR / "Hospital_data.xlsx"
 ROOT_HOSPITALS_WORKBOOK = Path(__file__).resolve().parents[1] / "Hospital_data (1).xlsx"
@@ -272,6 +272,32 @@ def _load_geojson_features(path):
     return features
 
 
+DISTRICT_STATE_NAMES = {
+    "AndamanandNicobar": "Andaman and Nicobar Islands",
+    "AndhraPradesh": "Andhra Pradesh",
+    "ArunachalPradesh": "Arunachal Pradesh",
+    "Chandigarh": "Chandigarh",
+    "DadraandNagarHaveli": "Dadra and Nagar Haveli",
+    "DamanandDiu": "Daman and Diu",
+    "HimachalPradesh": "Himachal Pradesh",
+    "JammuandKashmir": "Jammu and Kashmir",
+    "MadhyaPradesh": "Madhya Pradesh",
+    "N C T of Delhi": "Delhi",
+    "NCTofDelhi": "Delhi",
+    "TamilNadu": "Tamil Nadu",
+    "UttarPradesh": "Uttar Pradesh",
+    "Uttarakhand": "Uttarakhand",
+    "WestBengal": "West Bengal",
+}
+
+
+def _canonical_district_state(source_state, district_name):
+    state_name = DISTRICT_STATE_NAMES.get(source_state, source_state)
+    if source_state == "JammuandKashmir" and district_name in {"Kargil", "Leh(Ladakh)", "Leh"}:
+        return "Ladakh"
+    return state_name
+
+
 def _ensure_district_geojson():
     if DISTRICTS_GEOJSON.exists():
         return DISTRICTS_GEOJSON
@@ -293,7 +319,7 @@ def seed_districts(engine):
     geojson_path = _ensure_district_geojson()
     if not geojson_path:
         print(f"{DISTRICTS_GEOJSON} not found - skipping district outlines.")
-        print("   A district GeoJSON download is required to render the Haryana boundaries.")
+        print("   A district GeoJSON download is required to render the India boundaries.")
         return
     try:
         features = _load_geojson_features(geojson_path)
@@ -310,10 +336,13 @@ def seed_districts(engine):
                 continue
             props = feat.get("properties", {})
             name = (props.get("DISTRICT") or props.get("district") or
-                    props.get("NAME_2") or props.get("name") or
+                    props.get("NAME_2") or
+                    props.get("name") or
                     props.get("DIST_NAME") or props.get("dtname") or "Unknown")
-            state_name = (props.get("ST_NM") or props.get("state") or
+            source_state = (props.get("ST_NM") or props.get("NAME_1") or
+                            props.get("state") or
                           props.get("STATE") or props.get("ST") or "Unknown")
+            state_name = _canonical_district_state(source_state, name)
             geom_json = json.dumps(geom)
             try:
                 conn.execute(text("""
