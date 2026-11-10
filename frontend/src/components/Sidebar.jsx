@@ -224,7 +224,7 @@ export default function Sidebar({
     <aside className="sidebar">
       <div className="sidebar-summary">
         <div className="count-badge">
-          <span className="count-num">{uniqueCount ?? count}</span> Minimum Number of Ambulances Required for Vehicular Trauma
+          <span className="count-num">{uniqueCount ?? count}</span> Recommended Ambulance positioning locations
           <div className="count-badge__sub">
             Unique ambulances: <strong>{uniqueCount ?? 0}</strong>
           </div>
