@@ -40,6 +40,7 @@ export default function MapView({
   hotspots,
   hotspotLayerKey,
   districtLayerKey,
+  selectedState,
   indiaBoundary,
   stateBoundaries,
   districts,
@@ -111,6 +112,29 @@ export default function MapView({
     () => new Set((selectedDistricts || []).map((name) => name.toLowerCase())),
     [selectedDistricts]
   );
+  const hasSelectedDistricts = selectedDistrictNames.size > 0;
+  const hasSelectedState = selectedState && selectedState.toLowerCase() !== "all";
+
+  const visibleStateBoundaries = useMemo(() => {
+    if (!stateBoundaries || !hasSelectedState) return stateBoundaries;
+    return {
+      ...stateBoundaries,
+      features: stateBoundaries.features.filter(
+        (feature) => feature.properties?.state?.toLowerCase() === selectedState.toLowerCase()
+      ),
+    };
+  }, [stateBoundaries, selectedState, hasSelectedState]);
+
+  const visibleDistricts = useMemo(() => {
+    if (!districts || (!hasSelectedState && !hasSelectedDistricts)) return null;
+    if (!hasSelectedDistricts) return districts;
+    return {
+      ...districts,
+      features: districts.features.filter((feature) =>
+        selectedDistrictNames.has(feature.properties?.name?.toLowerCase())
+      ),
+    };
+  }, [districts, selectedDistrictNames, hasSelectedState, hasSelectedDistricts]);
 
   const districtStyle = (feature) => {
     const isSelected = selectedDistrictNames.has(feature.properties.name?.toLowerCase());
@@ -216,10 +240,10 @@ export default function MapView({
         />
       )}
 
-      {stateBoundaries && (
+      {!hasSelectedDistricts && visibleStateBoundaries && (
         <GeoJSON
-          key="india-state-boundaries"
-          data={stateBoundaries}
+          key={`india-state-boundaries-${selectedState || "all"}`}
+          data={visibleStateBoundaries}
           style={stateBoundaryStyle}
           onEachFeature={(feature, layer) => {
             const state = feature.properties?.state;
@@ -236,10 +260,10 @@ export default function MapView({
         />
       )}
 
-      {districts && (
+      {visibleDistricts && (
         <GeoJSON
           key={`districts-${districtLayerKey || "all"}`}
-          data={districts}
+          data={visibleDistricts}
           style={districtStyle}
         />
       )}

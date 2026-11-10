@@ -574,6 +574,7 @@ export default function App() {
                 filters.state,
                 ...(filters.district || []),
               ].join("|")}
+              selectedState={filters.state}
               indiaBoundary={indiaBoundary}
               stateBoundaries={stateBoundaries}
               districts={districts}
