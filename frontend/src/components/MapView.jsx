@@ -127,23 +127,30 @@ export default function MapView({
 
   const visibleDistricts = useMemo(() => {
     if (!districts || (!hasSelectedState && !hasSelectedDistricts)) return null;
-    if (!hasSelectedDistricts) return districts;
+    const stateFeatures = hasSelectedState
+      ? districts.features.filter(
+        (feature) => feature.properties?.state?.toLowerCase() === selectedState.toLowerCase()
+      )
+      : districts.features;
+    if (!hasSelectedDistricts) {
+      return { ...districts, features: stateFeatures };
+    }
     return {
       ...districts,
-      features: districts.features.filter((feature) =>
+      features: stateFeatures.filter((feature) =>
         selectedDistrictNames.has(feature.properties?.name?.toLowerCase())
       ),
     };
-  }, [districts, selectedDistrictNames, hasSelectedState, hasSelectedDistricts]);
+  }, [districts, selectedState, selectedDistrictNames, hasSelectedState, hasSelectedDistricts]);
 
   const districtStyle = (feature) => {
     const isSelected = selectedDistrictNames.has(feature.properties.name?.toLowerCase());
     return {
       color: isSelected ? "#EA580C" : "#94A3B8",
-      weight: isSelected ? 3 : 1.4,
+      weight: isSelected ? 3 : 2,
       fillOpacity: isSelected ? 0.08 : 0,
       fillColor: isSelected ? "#FDBA74" : "transparent",
-      opacity: isSelected ? 0.9 : 0.4,
+      opacity: isSelected ? 0.9 : 0.8,
     };
   };
 
