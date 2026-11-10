@@ -225,9 +225,6 @@ export default function Sidebar({
       <div className="sidebar-summary">
         <div className="count-badge">
           <span className="count-num">{uniqueCount ?? count}</span> Recommended Ambulance positioning locations
-          <div className="count-badge__sub">
-            Unique ambulances: <strong>{uniqueCount ?? 0}</strong>
-          </div>
         </div>
 
         <div className="legend-card">
