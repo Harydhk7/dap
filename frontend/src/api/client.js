@@ -38,6 +38,18 @@ export const api = {
     timePeriods.forEach((timePeriod) => qs.append("time_period", timePeriod));
     return request(`/api/hotspots?${qs.toString()}`);
   },
+  accidentGrid: (stateCode, districtCode = "", year = "2025") => request(
+    "/api/accident-grid",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        state: String(stateCode),
+        district: String(districtCode),
+        year: String(year),
+      }),
+    }
+  ).then((data) => data.details || { type: "FeatureCollection", features: [] }),
   hospitalsNearby: (ambulanceId, radiusKm = 50) => request(`/api/hospitals/nearby?ambulance_id=${encodeURIComponent(ambulanceId)}&radius_km=${encodeURIComponent(radiusKm)}`),
   recommendHospitals: (ambulanceId, injuryKey, radiusKm = 50) => request(`/api/recommend-hospitals?ambulance_id=${encodeURIComponent(ambulanceId)}&injury_type=${encodeURIComponent(injuryKey)}&radius_km=${encodeURIComponent(radiusKm)}`),
   ambulanceRecommendation: (ambulanceId, injuryKey) => request(`/api/ambulances/${encodeURIComponent(ambulanceId)}/recommendation`, {

@@ -88,6 +88,7 @@ export default function App() {
   const [ambulances, setAmbulances] = useState(null);
   const [districts, setDistricts] = useState(null);
   const [hotspots, setHotspots] = useState(null);
+  const [accidentGrid, setAccidentGrid] = useState(null);
   const [indiaBoundary, setIndiaBoundary] = useState(null);
   const [stateBoundaries, setStateBoundaries] = useState(null);
   const [nearbyHospitals, setNearbyHospitals] = useState(null);
@@ -118,6 +119,20 @@ export default function App() {
         if (active) setHotspots(data);
       })
       .catch(console.error);
+    setAccidentGrid(null);
+    const stateCode = {
+      Haryana: "13",
+      "Tamil Nadu": "29",
+    }[filters.state];
+    if (stateCode) {
+      api.accidentGrid(stateCode)
+        .then((data) => {
+          if (active) setAccidentGrid(data);
+        })
+        .catch((error) => {
+          if (active) console.error("Accident grid request failed", error);
+        });
+    }
     api.patientInjuries().then((items) => {
       setInjuryOptions(items || []);
       if (!(items || []).some((item) => item.key === selectedInjuryKey) && items?.length) {
@@ -564,6 +579,7 @@ export default function App() {
             <MapView
               ambulances={ambulances}
               hotspots={hotspots}
+              accidentGrid={accidentGrid}
               hotspotLayerKey={[
                 filters.state,
                 ...(filters.district || []),

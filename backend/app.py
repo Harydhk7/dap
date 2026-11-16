@@ -24,6 +24,7 @@ import re
 from io import BytesIO
 from urllib.parse import urlsplit, urlunsplit
 
+import requests
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
@@ -41,6 +42,7 @@ DATABASE_URL = os.environ.get(
 )
 CORS_ORIGINS = [origin.strip() for origin in os.environ.get("CORS_ORIGINS", "*").split(",") if origin.strip()]
 FLASK_PORT = int(os.environ.get("PORT") or os.environ.get("FLASK_PORT", 5001))
+ACCIDENT_GRID_URL = "https://sanjaya.coers.in/one_pager/acc_grid_data"
 
 
 def _resolve_database_url(url):
@@ -674,6 +676,31 @@ def list_ambulances():
 
     features = [_ambulance_to_feature(r._mapping) for r in rows]
     return jsonify({"type": "FeatureCollection", "features": features})
+
+
+@app.post("/api/accident-grid")
+def accident_grid():
+    payload = request.get_json(silent=True) or {}
+    state = str(payload.get("state") or "").strip()
+    district = str(payload.get("district") or "").strip()
+    year = str(payload.get("year") or "2025").strip()
+    if not state:
+        return jsonify({"error": "A grid state code is required"}), 400
+    if year not in {"2023", "2024", "2025"}:
+        return jsonify({"error": "Grid year must be 2023, 2024, or 2025"}), 400
+
+    try:
+        response = requests.post(
+            ACCIDENT_GRID_URL,
+            json={"state": state, "district": district, "year": year},
+            timeout=45,
+        )
+        response.raise_for_status()
+        return jsonify(response.json())
+    except requests.RequestException as exc:
+        return jsonify({"error": f"Accident grid service unavailable: {exc}"}), 502
+    except ValueError:
+        return jsonify({"error": "Accident grid service returned invalid JSON"}), 502
 
 
 @app.get("/api/hotspots")

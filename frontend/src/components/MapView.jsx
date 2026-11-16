@@ -38,6 +38,7 @@ function MapClickHandler({ measureMode, onMapClick }) {
 export default function MapView({
   ambulances,
   hotspots,
+  accidentGrid,
   hotspotLayerKey,
   districtLayerKey,
   selectedState,
@@ -181,6 +182,17 @@ export default function MapView({
     opacity: 1,
   };
 
+  const accidentGridStyle = (feature) => {
+    const severity = Number(feature.properties?.severity_score) || 0;
+    const intensity = Math.min(Math.max(severity / 10, 0), 1);
+    return {
+      color: "#B91C1C",
+      weight: 0.7,
+      fillColor: `hsl(${Math.round(45 - intensity * 45)}, 90%, 50%)`,
+      fillOpacity: 0.12 + intensity * 0.38,
+    };
+  };
+
   const createAmbulanceIcon = (selected = false) => L.divIcon({
     className: "",
     html: `
@@ -273,6 +285,20 @@ export default function MapView({
           data={visibleDistricts}
           style={districtStyle}
         />
+      )}
+
+      {accidentGrid?.features?.length > 0 && (
+        <Pane name="accident-grid" style={{ zIndex: 455 }}>
+          <GeoJSON
+            key={`accident-grid-${selectedState || "all"}-${selectedDistricts?.join("|") || "all"}`}
+            data={accidentGrid}
+            style={accidentGridStyle}
+            onEachFeature={(feature, layer) => {
+              const { grid_id: gridId, severity_score: severity } = feature.properties || {};
+              layer.bindTooltip(`Grid ${gridId} · Severity ${severity ?? "—"}`, { sticky: true });
+            }}
+          />
+        </Pane>
       )}
 
       {hotspots && (
