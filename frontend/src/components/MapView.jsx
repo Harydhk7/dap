@@ -352,7 +352,7 @@ export default function MapView({
           )}
           <div className="map-legend__row">
             <span className="map-legend__swatch map-legend__swatch--hotspot" />
-            <span>Super-hotspot polygon ({hotspots.features.length})</span>
+            <span>Super-hotspot polygon ({hotspots?.features?.length || 0})</span>
           </div>
           <div className="map-legend__row">
             <span className="map-legend__swatch map-legend__swatch--ambulance" />
