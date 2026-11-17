@@ -84,6 +84,7 @@ function normalizeLookupName(value) {
   return String(value || "")
     .toLowerCase()
     .replace(/&/g, "and")
+    .replace(/thir/g, "tir")
     .replace(/[^a-z0-9]/g, "");
 }
 
