@@ -184,12 +184,18 @@ export default function MapView({
 
   const accidentGridStyle = (feature) => {
     const severity = Number(feature.properties?.severity_score) || 0;
-    const intensity = Math.min(Math.max(severity / 10, 0), 1);
+    const band = severity > 37
+      ? { color: "#DC2626", fillColor: "#FCA5A5" }
+      : severity > 22.5
+        ? { color: "#EA580C", fillColor: "#FDBA74" }
+        : severity > 11.5
+          ? { color: "#CA8A04", fillColor: "#FDE68A" }
+          : { color: "#EAB308", fillColor: "#FEF9C3" };
     return {
-      color: "#B91C1C",
-      weight: 0.7,
-      fillColor: `hsl(${Math.round(45 - intensity * 45)}, 90%, 50%)`,
-      fillOpacity: 0.12 + intensity * 0.38,
+      color: band.color,
+      weight: 1,
+      fillColor: band.fillColor,
+      fillOpacity: 0.78,
     };
   };
 
@@ -322,8 +328,28 @@ export default function MapView({
         </Pane>
       )}
 
-      {hotspots?.features?.length > 0 && (
+      {(hotspots?.features?.length > 0 || accidentGrid?.features?.length > 0) && (
         <div className="map-legend">
+          {accidentGrid?.features?.length > 0 && (
+            <>
+              <div className="map-legend__row">
+                <span className="map-legend__swatch map-legend__swatch--grid-light" />
+                <span>Light yellow grid (1–11.5)</span>
+              </div>
+              <div className="map-legend__row">
+                <span className="map-legend__swatch map-legend__swatch--grid-yellow" />
+                <span>Yellow grid (11.5–22.5)</span>
+              </div>
+              <div className="map-legend__row">
+                <span className="map-legend__swatch map-legend__swatch--grid-orange" />
+                <span>Orange grid (22.5–37)</span>
+              </div>
+              <div className="map-legend__row">
+                <span className="map-legend__swatch map-legend__swatch--grid-red" />
+                <span>Red grid (37–109)</span>
+              </div>
+            </>
+          )}
           <div className="map-legend__row">
             <span className="map-legend__swatch map-legend__swatch--hotspot" />
             <span>Super-hotspot polygon ({hotspots.features.length})</span>

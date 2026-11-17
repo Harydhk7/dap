@@ -49,7 +49,20 @@ export const api = {
         year: String(year),
       }),
     }
-  ).then((data) => data.details || { type: "FeatureCollection", features: [] }),
+  ).then((data) => {
+    const details = data.details || { type: "FeatureCollection", features: [] };
+    return {
+      ...details,
+      features: (details.features || []).map((feature) => {
+        const { geometry, type, ...properties } = feature;
+        return { type: "Feature", geometry, properties };
+      }),
+    };
+  }),
+  accidentStates: () => request("/api/accident-states"),
+  accidentDistricts: (stateCode) => request(
+    `/api/accident-districts?state=${encodeURIComponent(stateCode)}`
+  ),
   hospitalsNearby: (ambulanceId, radiusKm = 50) => request(`/api/hospitals/nearby?ambulance_id=${encodeURIComponent(ambulanceId)}&radius_km=${encodeURIComponent(radiusKm)}`),
   recommendHospitals: (ambulanceId, injuryKey, radiusKm = 50) => request(`/api/recommend-hospitals?ambulance_id=${encodeURIComponent(ambulanceId)}&injury_type=${encodeURIComponent(injuryKey)}&radius_km=${encodeURIComponent(radiusKm)}`),
   ambulanceRecommendation: (ambulanceId, injuryKey) => request(`/api/ambulances/${encodeURIComponent(ambulanceId)}/recommendation`, {

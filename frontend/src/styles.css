@@ -1041,3 +1041,23 @@ button {
   border-radius: 50%;
   background: #DC2626;
 }
+
+.map-legend__swatch--grid-light {
+  border: 1px solid #EAB308;
+  background: #FEF9C3;
+}
+
+.map-legend__swatch--grid-yellow {
+  border: 1px solid #CA8A04;
+  background: #FDE68A;
+}
+
+.map-legend__swatch--grid-orange {
+  border: 1px solid #EA580C;
+  background: #FDBA74;
+}
+
+.map-legend__swatch--grid-red {
+  border: 1px solid #DC2626;
+  background: #FCA5A5;
+}

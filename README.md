@@ -66,6 +66,11 @@ The hospital workbook must be present at the repository root as
 `Hospital_data (1).xlsx` when building the backend image. It is copied into
 `backend/data/Hospital_data.xlsx` and loaded by `seed.py` during startup.
 
+The accident grid uses the online COERS state and district lookup APIs and
+passes their numeric codes to the grid API. If the service requires
+authentication, provide `COERS_API_TOKEN` in the environment before starting
+Docker; the token is never stored in the repository.
+
 ## API endpoints
 
 | Method | Endpoint | Purpose |

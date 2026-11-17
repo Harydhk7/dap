@@ -80,6 +80,13 @@ function getUniqueAmbulanceCount(features = []) {
   return tracks.length;
 }
 
+function normalizeLookupName(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]/g, "");
+}
+
 export default function App() {
   const [filterOptions, setFilterOptions] = useState({});
   const [filters, setFilters] = useState({
@@ -89,6 +96,8 @@ export default function App() {
   const [districts, setDistricts] = useState(null);
   const [hotspots, setHotspots] = useState(null);
   const [accidentGrid, setAccidentGrid] = useState(null);
+  const [accidentStates, setAccidentStates] = useState([]);
+  const [accidentDistricts, setAccidentDistricts] = useState([]);
   const [indiaBoundary, setIndiaBoundary] = useState(null);
   const [stateBoundaries, setStateBoundaries] = useState(null);
   const [nearbyHospitals, setNearbyHospitals] = useState(null);
@@ -111,6 +120,38 @@ export default function App() {
   const [mapMinHeight, setMapMinHeight] = useState("calc(100vh - 60px)");
 
   useEffect(() => {
+    api.accidentStates().then(setAccidentStates).catch(console.error);
+  }, []);
+
+  const accidentStateCode = useMemo(() => {
+    const selected = accidentStates.find(
+      (item) => normalizeLookupName(item.state_name) === normalizeLookupName(filters.state)
+    );
+    return selected?.state_code || "";
+  }, [accidentStates, filters.state]);
+
+  useEffect(() => {
+    if (!accidentStateCode) {
+      setAccidentDistricts([]);
+      return undefined;
+    }
+    let active = true;
+    api.accidentDistricts(accidentStateCode)
+      .then((items) => {
+        if (active) setAccidentDistricts(items);
+      })
+      .catch((error) => {
+        if (active) {
+          setAccidentDistricts([]);
+          console.error("Accident district lookup failed", error);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [accidentStateCode]);
+
+  useEffect(() => {
     let active = true;
     api.filterOptions(filters.state).then(setFilterOptions).catch(console.error);
     api.districts(filters.state).then(setDistricts).catch(console.error);
@@ -120,14 +161,24 @@ export default function App() {
       })
       .catch(console.error);
     setAccidentGrid(null);
-    const stateCode = {
-      Haryana: "13",
-      "Tamil Nadu": "29",
-    }[filters.state];
-    if (stateCode) {
-      api.accidentGrid(stateCode)
-        .then((data) => {
-          if (active) setAccidentGrid(data);
+    if (accidentStateCode) {
+      const selectedDistrictCodes = (filters.district || [])
+        .map((district) => accidentDistricts.find(
+          (item) => normalizeLookupName(item.district_name) === normalizeLookupName(district)
+        )?.district_code)
+        .filter((code) => code && code !== "0");
+      const requests = selectedDistrictCodes.length
+        ? selectedDistrictCodes.map((code) => api.accidentGrid(accidentStateCode, code))
+        : [api.accidentGrid(accidentStateCode)];
+      Promise.all(requests)
+        .then((responses) => {
+          if (active) {
+            const features = responses.flatMap((response) => response.features || []);
+            setAccidentGrid({
+              type: "FeatureCollection",
+              features,
+            });
+          }
         })
         .catch((error) => {
           if (active) console.error("Accident grid request failed", error);
@@ -150,7 +201,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [filters.state, filters.district, filters.day, filters.time_period]);
+  }, [accidentDistricts, accidentStateCode, filters.state, filters.district, filters.day, filters.time_period]);
 
   useEffect(() => {
     const node = overlayStackRef.current;

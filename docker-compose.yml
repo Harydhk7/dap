@@ -27,6 +27,7 @@ services:
       DATABASE_URL: postgresql+psycopg2://ambumap:ambumap@db:5432/ambumap
       CORS_ORIGINS: "*"
       PORT: 5001
+      COERS_API_TOKEN: ${COERS_API_TOKEN:-}
     ports:
       - "5001:5001"
     healthcheck:

@@ -43,6 +43,12 @@ DATABASE_URL = os.environ.get(
 CORS_ORIGINS = [origin.strip() for origin in os.environ.get("CORS_ORIGINS", "*").split(",") if origin.strip()]
 FLASK_PORT = int(os.environ.get("PORT") or os.environ.get("FLASK_PORT", 5001))
 ACCIDENT_GRID_URL = "https://sanjaya.coers.in/one_pager/acc_grid_data"
+COERS_API_BASE = "https://sanjaya.coers.in"
+
+
+def _coers_headers():
+    token = os.environ.get("COERS_API_TOKEN", "").strip()
+    return {"Authorization": f"Bearer {token}"} if token else {}
 
 
 def _resolve_database_url(url):
@@ -701,6 +707,42 @@ def accident_grid():
         return jsonify({"error": f"Accident grid service unavailable: {exc}"}), 502
     except ValueError:
         return jsonify({"error": "Accident grid service returned invalid JSON"}), 502
+
+
+@app.get("/api/accident-states")
+def accident_states():
+    try:
+        response = requests.get(
+            f"{COERS_API_BASE}/get_details/get_state",
+            headers=_coers_headers(),
+            timeout=30,
+        )
+        response.raise_for_status()
+        return jsonify(response.json())
+    except requests.RequestException as exc:
+        return jsonify({"error": f"Accident state service unavailable: {exc}"}), 502
+    except ValueError:
+        return jsonify({"error": "Accident state service returned invalid JSON"}), 502
+
+
+@app.get("/api/accident-districts")
+def accident_districts():
+    state = request.args.get("state", "").strip()
+    if not state:
+        return jsonify({"error": "A grid state code is required"}), 400
+    try:
+        response = requests.get(
+            f"{COERS_API_BASE}/get_details/get_district",
+            params={"state": state},
+            headers=_coers_headers(),
+            timeout=30,
+        )
+        response.raise_for_status()
+        return jsonify(response.json())
+    except requests.RequestException as exc:
+        return jsonify({"error": f"Accident district service unavailable: {exc}"}), 502
+    except ValueError:
+        return jsonify({"error": "Accident district service returned invalid JSON"}), 502
 
 
 @app.get("/api/hotspots")
