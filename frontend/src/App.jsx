@@ -85,7 +85,9 @@ function normalizeLookupName(value) {
     .toLowerCase()
     .replace(/&/g, "and")
     .replace(/thir/g, "tir")
-    .replace(/[^a-z0-9]/g, "");
+    .replace(/[^a-z0-9]/g, "")
+    .replace("charki", "charkhi")
+    .replace("mahendragarh", "mahendergarh");
 }
 
 export default function App() {
