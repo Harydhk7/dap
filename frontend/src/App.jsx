@@ -80,32 +80,74 @@ function getUniqueAmbulanceCount(features = []) {
   return tracks.length;
 }
 
+const LOOKUP_ALIASES = {
+  charkidadri: "charkhidadri",
+  mahendragarh: "mahendergarh",
+  anugul: "angul",
+  balangir: "bolangir",
+  bargarh: "baragarh",
+  cuttackupd: "cuttack",
+  cuttackerural: "cuttack",
+  jajapur: "jajpur",
+  nuaparha: "nawapara",
+  nabarangapur: "nawarangpur",
+  kandhamal: "phulbani",
+  khordha: "khurda",
+  rayagarha: "rayagada",
+  subarnapur: "sonepur",
+};
+
 function normalizeLookupName(value) {
-  const stripped = String(value || "")
+  const normalized = String(value || "")
     .replace(/\s*\([^)]*\)\s*$/, "")
     .toLowerCase()
     .replace(/&/g, "and")
     .replace(/thir/g, "tir")
     .replace(/[^a-z0-9]/g, "");
+  return LOOKUP_ALIASES[normalized] || normalized;
+}
 
-  const aliases = {
-    charkidadri: "charkhidadri",
-    mahendragarh: "mahendergarh",
-    anugul: "angul",
-    balangir: "bolangir",
-    bargarh: "baragarh",
-    cuttackupd: "cuttack",
-    cuttackerural: "cuttack",
-    jajapur: "jajpur",
-    nuaparha: "nawapara",
-    nabarangapur: "nawarangpur",
-    kandhamal: "phulbani",
-    khordha: "khurda",
-    rayagarha: "rayagada",
-    subarnapur: "sonepur",
-  };
+function levenshteinDistance(left, right) {
+  const rows = Array.from({ length: left.length + 1 }, (_, index) => [index]);
+  for (let column = 0; column <= right.length; column += 1) rows[0][column] = column;
+  for (let row = 1; row <= left.length; row += 1) {
+    for (let column = 1; column <= right.length; column += 1) {
+      rows[row][column] = Math.min(
+        rows[row - 1][column] + 1,
+        rows[row][column - 1] + 1,
+        rows[row - 1][column - 1] + (left[row - 1] === right[column - 1] ? 0 : 1),
+      );
+    }
+  }
+  return rows[left.length][right.length];
+}
 
-  return aliases[stripped] || stripped;
+function resolveDistrictCodes(districtName, accidentDistricts) {
+  const target = normalizeLookupName(districtName);
+  if (!target) return [];
+
+  const exactMatches = accidentDistricts
+    .filter((item) => item.district_code !== "0")
+    .filter((item) => normalizeLookupName(item.district_name) === target);
+  if (exactMatches.length) {
+    return exactMatches.map((item) => String(item.district_code));
+  }
+
+  const ranked = accidentDistricts
+    .filter((item) => item.district_code !== "0")
+    .map((item) => ({
+      code: String(item.district_code),
+      distance: levenshteinDistance(target, normalizeLookupName(item.district_name)),
+      length: normalizeLookupName(item.district_name).length,
+    }))
+    .sort((left, right) => left.distance - right.distance || left.length - right.length);
+
+  if (!ranked.length) return [];
+  const best = ranked[0];
+  const allowedDistance = Math.max(1, Math.floor(target.length * 0.12));
+  if (best.distance > allowedDistance) return [];
+  const sameDistance = ranked.filter((item) => item.distance === best.distance);
+  return sameDistance.length === 1 ? [best.code] : [];
 }
 
 export default function App() {
@@ -187,10 +229,8 @@ export default function App() {
       if (selectedDistrictNames.length > 0) {
         if (accidentDistricts.length) {
           const selectedDistrictCodes = selectedDistrictNames
-            .map((district) => accidentDistricts.find(
-              (item) => normalizeLookupName(item.district_name) === normalizeLookupName(district)
-            )?.district_code)
-            .filter((code) => code && code !== "0");
+            .flatMap((district) => resolveDistrictCodes(district, accidentDistricts))
+            .filter((code, index, codes) => codes.indexOf(code) === index);
           if (!selectedDistrictCodes.length) {
             console.warn("No accident district code matched", selectedDistrictNames);
           } else {
