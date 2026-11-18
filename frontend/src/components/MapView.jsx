@@ -11,6 +11,57 @@ const HARYANA_BOUNDS = [
   [30.9, 77.9],
 ];
 
+const GRID_COLORS = ["lightyellow", "yellow", "orange", "red"];
+
+function median(values) {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((left, right) => left - right);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2
+    ? sorted[middle]
+    : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+function buildGridIntervals(features) {
+  const uniqueScores = Array.from(new Set(
+    features
+      .map((feature) => Number(feature.properties?.severity_score))
+      .filter((score) => Number.isFinite(score))
+  )).sort((left, right) => left - right);
+  if (!uniqueScores.length) return [];
+
+  const globalMedian = median(uniqueScores);
+  const lowerMedian = median(uniqueScores.filter((score) => score <= globalMedian));
+  const upperMedian = median(uniqueScores.filter((score) => score > globalMedian));
+  const last = uniqueScores[uniqueScores.length - 1];
+
+  return [
+    { index: 0, start: uniqueScores[0], end: lowerMedian, color: GRID_COLORS[0], count: 0 },
+    { index: 1, start: lowerMedian, end: globalMedian, color: GRID_COLORS[1], count: 0 },
+    { index: 2, start: globalMedian, end: upperMedian, color: GRID_COLORS[2], count: 0 },
+    { index: 3, start: upperMedian, end: last, color: GRID_COLORS[3], count: 0 },
+  ].map((interval) => ({
+    ...interval,
+    count: features.filter((feature) => {
+      const score = Number(feature.properties?.severity_score);
+      if (interval.index === 3) return score >= interval.start && score <= interval.end;
+      return score >= interval.start && score < interval.end;
+    }).length,
+  }));
+}
+
+function gridColorForScore(score, intervals) {
+  for (let index = 0; index < intervals.length; index += 1) {
+    const interval = intervals[index];
+    if (index === intervals.length - 1
+      ? score >= interval.start && score <= interval.end
+      : score >= interval.start && score < interval.end) {
+      return interval.color;
+    }
+  }
+  return GRID_COLORS[0];
+}
+
 function FitBounds({ bounds }) {
   const map = useMap();
   useEffect(() => {
@@ -56,6 +107,11 @@ export default function MapView({
   onHospitalClick,
   onMapClick,
 }) {
+  const gridIntervals = useMemo(
+    () => buildGridIntervals(accidentGrid?.features || []),
+    [accidentGrid],
+  );
+
   const radiusBounds = (lat, lon, radiusKm) => {
     const latDelta = radiusKm / 111.0;
     const lonScale = Math.max(Math.cos((lat * Math.PI) / 180), 0.2);
@@ -184,26 +240,13 @@ export default function MapView({
 
   const accidentGridStyle = (feature) => {
     const severity = Number(feature.properties?.severity_score) || 0;
-    if (severity <= 0) {
-      return {
-        color: "#111111",
-        weight: 1,
-        fillColor: "#FFFFFF",
-        fillOpacity: 0.35,
-      };
-    }
-    const band = severity > 37
-      ? { color: "#111111", fillColor: "#EF4444" }
-      : severity > 22.5
-        ? { color: "#111111", fillColor: "#F97316" }
-        : severity > 11.5
-          ? { color: "#111111", fillColor: "#FACC15" }
-          : { color: "#111111", fillColor: "#84CC16" };
+    const color = gridColorForScore(severity, gridIntervals);
     return {
-      color: band.color,
-      weight: 1.15,
-      fillColor: band.fillColor,
-      fillOpacity: 0.88,
+      fillColor: color,
+      weight: 2,
+      color: "black",
+      opacity: 1,
+      fillOpacity: 0.7,
     };
   };
 
@@ -306,6 +349,7 @@ export default function MapView({
           <GeoJSON
             key={`accident-grid-${selectedState || "all"}-${selectedDistricts?.join("|") || "all"}`}
             data={accidentGrid}
+            renderer={L.canvas({ padding: 0.5 })}
             style={accidentGridStyle}
             onEachFeature={(feature, layer) => {
               const { grid_id: gridId, severity_score: severity } = feature.properties || {};
@@ -340,22 +384,22 @@ export default function MapView({
         <div className="map-legend">
           {accidentGrid?.features?.length > 0 && (
             <>
-              <div className="map-legend__row">
-                <span className="map-legend__swatch map-legend__swatch--grid-green" />
-                <span>Green grid (1–11.5)</span>
-              </div>
-              <div className="map-legend__row">
-                <span className="map-legend__swatch map-legend__swatch--grid-yellow" />
-                <span>Yellow grid (11.5–22.5)</span>
-              </div>
-              <div className="map-legend__row">
-                <span className="map-legend__swatch map-legend__swatch--grid-orange" />
-                <span>Orange grid (22.5–37)</span>
-              </div>
-              <div className="map-legend__row">
-                <span className="map-legend__swatch map-legend__swatch--grid-red" />
-                <span>Red grid (37–109)</span>
-              </div>
+              {[
+                { index: 3, color: "red", label: "Red Cells", className: "grid-red" },
+                { index: 2, color: "orange", label: "Orange Cells", className: "grid-orange" },
+                { index: 1, color: "yellow", label: "Yellow Cells", className: "grid-yellow" },
+                { index: 0, color: "lightyellow", label: "Light Yellow Cells", className: "grid-light" },
+              ].map((band) => {
+                const interval = gridIntervals[band.index];
+                return (
+                  <div className="map-legend__row" key={band.color}>
+                    <span className={`map-legend__swatch map-legend__swatch--${band.className}`} />
+                    <span>
+                      {band.label} ({interval?.start ?? "—"}–{interval?.end ?? "—"}) · {interval?.count ?? 0} cells
+                    </span>
+                  </div>
+                );
+              })}
             </>
           )}
           <div className="map-legend__row">

@@ -1042,22 +1042,22 @@ button {
   background: #DC2626;
 }
 
-.map-legend__swatch--grid-green {
-  border: 1px solid #111111;
-  background: #84CC16;
+.map-legend__swatch--grid-light {
+  border: 1px solid #FFD014;
+  background: lightyellow;
 }
 
 .map-legend__swatch--grid-yellow {
-  border: 1px solid #111111;
-  background: #FACC15;
+  border: 1px solid yellow;
+  background: #F5F530;
 }
 
 .map-legend__swatch--grid-orange {
-  border: 1px solid #111111;
-  background: #F97316;
+  border: 1px solid orange;
+  background: rgb(255 217 148 / 65%);
 }
 
 .map-legend__swatch--grid-red {
-  border: 1px solid #111111;
-  background: #EF4444;
+  border: 1px solid red;
+  background: rgb(253 192 192 / 65%);
 }
