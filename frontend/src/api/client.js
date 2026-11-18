@@ -8,21 +8,6 @@ async function request(path, options = {}) {
   return res.json();
 }
 
-async function requestWithRetry(path, options = {}, attempts = 3) {
-  let lastError;
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    try {
-      return await request(path, options);
-    } catch (error) {
-      lastError = error;
-      if (attempt < attempts - 1) {
-        await new Promise((resolve) => setTimeout(resolve, (attempt + 1) * 500));
-      }
-    }
-  }
-  throw lastError;
-}
-
 async function download(path, filename) {
   const res = await fetch(path);
   if (!res.ok) {
@@ -53,7 +38,7 @@ export const api = {
     timePeriods.forEach((timePeriod) => qs.append("time_period", timePeriod));
     return request(`/api/hotspots?${qs.toString()}`);
   },
-  accidentGrid: (stateCode, districtCode = "", year = "2025") => requestWithRetry(
+  accidentGrid: (stateCode, districtCode = "", year = "2025") => request(
     "/api/accident-grid",
     {
       method: "POST",
@@ -74,8 +59,8 @@ export const api = {
       }),
     };
   }),
-  accidentStates: () => requestWithRetry("/api/accident-states"),
-  accidentDistricts: (stateCode) => requestWithRetry(
+  accidentStates: () => request("/api/accident-states"),
+  accidentDistricts: (stateCode) => request(
     `/api/accident-districts?state=${encodeURIComponent(stateCode)}`
   ),
   hospitalsNearby: (ambulanceId, radiusKm = 50) => request(`/api/hospitals/nearby?ambulance_id=${encodeURIComponent(ambulanceId)}&radius_km=${encodeURIComponent(radiusKm)}`),

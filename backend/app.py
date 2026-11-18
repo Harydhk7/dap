@@ -22,12 +22,14 @@ import json
 import os
 import re
 import time
+import hashlib
 from io import BytesIO
+from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
 import requests
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, jsonify, make_response, request, send_file
 from flask_cors import CORS
 from sqlalchemy import bindparam, create_engine, text
 from sqlalchemy.orm import sessionmaker
@@ -47,21 +49,67 @@ ACCIDENT_GRID_URL = "https://sanjaya.coers.in/one_pager/acc_grid_data"
 COERS_API_BASE = "https://sanjaya.coers.in"
 COERS_CACHE = {}
 COERS_CACHE_TTL_SECONDS = 300
+COERS_DISK_CACHE_TTL_SECONDS = int(os.environ.get("COERS_DISK_CACHE_TTL_SECONDS", "86400"))
+COERS_DISK_CACHE_DIR = Path(os.environ.get(
+    "COERS_DISK_CACHE_DIR",
+    "/app/backend/data/coers_cache",
+))
+COERS_DISK_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _coers_cache_filename(key):
+    serialized = json.dumps(key, sort_keys=True, separators=(",", ":"))
+    return COERS_DISK_CACHE_DIR / f"{hashlib.sha256(serialized.encode()).hexdigest()}.json"
+
+
+def _coers_disk_get(key, allow_stale=False):
+    path = _coers_cache_filename(key)
+    try:
+        with path.open("r", encoding="utf-8") as cache_file:
+            entry = json.load(cache_file)
+        age = time.time() - float(entry["cached_at"])
+        if allow_stale or age <= COERS_DISK_CACHE_TTL_SECONDS:
+            return entry["value"]
+    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+        pass
+    return None
+
+
+def _coers_disk_set(key, value):
+    path = _coers_cache_filename(key)
+    temporary = path.with_suffix(".tmp")
+    try:
+        with temporary.open("w", encoding="utf-8") as cache_file:
+            json.dump({"cached_at": time.time(), "value": value}, cache_file)
+        temporary.replace(path)
+    except OSError:
+        pass
 
 
 def _coers_cache_get(key):
     entry = COERS_CACHE.get(key)
-    if not entry:
-        return None
-    expires_at, value = entry
-    if expires_at <= time.monotonic():
+    if entry:
+        expires_at, value = entry
+        if expires_at > time.monotonic():
+            return value
         COERS_CACHE.pop(key, None)
-        return None
+    value = _coers_disk_get(key)
+    if value is not None:
+        COERS_CACHE[key] = (time.monotonic() + COERS_CACHE_TTL_SECONDS, value)
     return value
 
 
 def _coers_cache_set(key, value):
     COERS_CACHE[key] = (time.monotonic() + COERS_CACHE_TTL_SECONDS, value)
+    _coers_disk_set(key, value)
+
+
+def _coers_json_response(value, *, stale=False):
+    response = make_response(jsonify(value))
+    response.headers["Cache-Control"] = "public, max-age=300" if not stale else "public, max-age=60"
+    if stale:
+        response.headers["Warning"] = '110 "Response is stale"'
+    return response
 
 
 def _coers_request(method, url, *, json_payload=None, params=None, timeout=45):
@@ -742,7 +790,7 @@ def accident_grid():
     cache_key = ("grid", state, district, year)
     cached = _coers_cache_get(cache_key)
     if cached is not None:
-        return jsonify(cached)
+        return _coers_json_response(cached)
 
     try:
         data = _coers_request(
@@ -751,8 +799,11 @@ def accident_grid():
             json_payload={"state": state, "district": district, "year": year},
         )
         _coers_cache_set(cache_key, data)
-        return jsonify(data)
+        return _coers_json_response(data)
     except requests.RequestException as exc:
+        stale = _coers_disk_get(cache_key, allow_stale=True)
+        if stale is not None:
+            return _coers_json_response(stale, stale=True)
         return jsonify({"error": f"Accident grid service unavailable: {exc}"}), 502
     except ValueError:
         return jsonify({"error": "Accident grid service returned invalid JSON"}), 502
@@ -765,12 +816,15 @@ def accident_states():
     cache_key = ("states",)
     cached = _coers_cache_get(cache_key)
     if cached is not None:
-        return jsonify(cached)
+        return _coers_json_response(cached)
     try:
         data = _coers_request("GET", f"{COERS_API_BASE}/get_details/get_state", timeout=30)
         _coers_cache_set(cache_key, data)
-        return jsonify(data)
+        return _coers_json_response(data)
     except requests.RequestException as exc:
+        stale = _coers_disk_get(cache_key, allow_stale=True)
+        if stale is not None:
+            return _coers_json_response(stale, stale=True)
         return jsonify({"error": f"Accident state service unavailable: {exc}"}), 502
     except ValueError:
         return jsonify({"error": "Accident state service returned invalid JSON"}), 502
@@ -786,7 +840,7 @@ def accident_districts():
     cache_key = ("districts", state)
     cached = _coers_cache_get(cache_key)
     if cached is not None:
-        return jsonify(cached)
+        return _coers_json_response(cached)
     try:
         data = _coers_request(
             "GET",
@@ -795,8 +849,11 @@ def accident_districts():
             timeout=30,
         )
         _coers_cache_set(cache_key, data)
-        return jsonify(data)
+        return _coers_json_response(data)
     except requests.RequestException as exc:
+        stale = _coers_disk_get(cache_key, allow_stale=True)
+        if stale is not None:
+            return _coers_json_response(stale, stale=True)
         return jsonify({"error": f"Accident district service unavailable: {exc}"}), 502
     except ValueError:
         return jsonify({"error": "Accident district service returned invalid JSON"}), 502

@@ -30,6 +30,8 @@ services:
       COERS_API_TOKEN: ${COERS_API_TOKEN:-}
     ports:
       - "5001:5001"
+    volumes:
+      - coers-cache:/app/backend/data/coers_cache
     healthcheck:
       test:
         [
@@ -71,3 +73,4 @@ services:
 
 volumes:
   pgdata:
+  coers-cache:
