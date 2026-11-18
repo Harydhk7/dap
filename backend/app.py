@@ -21,6 +21,7 @@ You will be adding these on top of this baseline.
 import json
 import os
 import re
+import time
 from io import BytesIO
 from urllib.parse import urlsplit, urlunsplit
 
@@ -44,6 +45,49 @@ CORS_ORIGINS = [origin.strip() for origin in os.environ.get("CORS_ORIGINS", "*")
 FLASK_PORT = int(os.environ.get("PORT") or os.environ.get("FLASK_PORT", 5001))
 ACCIDENT_GRID_URL = "https://sanjaya.coers.in/one_pager/acc_grid_data"
 COERS_API_BASE = "https://sanjaya.coers.in"
+COERS_CACHE = {}
+COERS_CACHE_TTL_SECONDS = 300
+
+
+def _coers_cache_get(key):
+    entry = COERS_CACHE.get(key)
+    if not entry:
+        return None
+    expires_at, value = entry
+    if expires_at <= time.monotonic():
+        COERS_CACHE.pop(key, None)
+        return None
+    return value
+
+
+def _coers_cache_set(key, value):
+    COERS_CACHE[key] = (time.monotonic() + COERS_CACHE_TTL_SECONDS, value)
+
+
+def _coers_request(method, url, *, json_payload=None, params=None, timeout=45):
+    headers = {
+        "Accept": "application/json, text/plain, */*",
+        "Referer": f"{COERS_API_BASE}/",
+        **_coers_headers(),
+    }
+    last_error = None
+    for attempt in range(3):
+        try:
+            response = requests.request(
+                method,
+                url,
+                json=json_payload,
+                params=params,
+                headers=headers,
+                timeout=timeout,
+            )
+            response.raise_for_status()
+            return response.json()
+        except (requests.RequestException, ValueError) as exc:
+            last_error = exc
+            if attempt < 2:
+                time.sleep(attempt + 1)
+    raise last_error
 
 
 def _coers_headers():
@@ -695,34 +739,43 @@ def accident_grid():
     if year not in {"2023", "2024", "2025"}:
         return jsonify({"error": "Grid year must be 2023, 2024, or 2025"}), 400
 
+    cache_key = ("grid", state, district, year)
+    cached = _coers_cache_get(cache_key)
+    if cached is not None:
+        return jsonify(cached)
+
     try:
-        response = requests.post(
+        data = _coers_request(
+            "POST",
             ACCIDENT_GRID_URL,
-            json={"state": state, "district": district, "year": year},
-            timeout=45,
+            json_payload={"state": state, "district": district, "year": year},
         )
-        response.raise_for_status()
-        return jsonify(response.json())
+        _coers_cache_set(cache_key, data)
+        return jsonify(data)
     except requests.RequestException as exc:
         return jsonify({"error": f"Accident grid service unavailable: {exc}"}), 502
     except ValueError:
         return jsonify({"error": "Accident grid service returned invalid JSON"}), 502
+    except Exception as exc:
+        return jsonify({"error": f"Accident grid service unavailable: {exc}"}), 502
 
 
 @app.get("/api/accident-states")
 def accident_states():
+    cache_key = ("states",)
+    cached = _coers_cache_get(cache_key)
+    if cached is not None:
+        return jsonify(cached)
     try:
-        response = requests.get(
-            f"{COERS_API_BASE}/get_details/get_state",
-            headers=_coers_headers(),
-            timeout=30,
-        )
-        response.raise_for_status()
-        return jsonify(response.json())
+        data = _coers_request("GET", f"{COERS_API_BASE}/get_details/get_state", timeout=30)
+        _coers_cache_set(cache_key, data)
+        return jsonify(data)
     except requests.RequestException as exc:
         return jsonify({"error": f"Accident state service unavailable: {exc}"}), 502
     except ValueError:
         return jsonify({"error": "Accident state service returned invalid JSON"}), 502
+    except Exception as exc:
+        return jsonify({"error": f"Accident state service unavailable: {exc}"}), 502
 
 
 @app.get("/api/accident-districts")
@@ -730,19 +783,25 @@ def accident_districts():
     state = request.args.get("state", "").strip()
     if not state:
         return jsonify({"error": "A grid state code is required"}), 400
+    cache_key = ("districts", state)
+    cached = _coers_cache_get(cache_key)
+    if cached is not None:
+        return jsonify(cached)
     try:
-        response = requests.get(
+        data = _coers_request(
+            "GET",
             f"{COERS_API_BASE}/get_details/get_district",
             params={"state": state},
-            headers=_coers_headers(),
             timeout=30,
         )
-        response.raise_for_status()
-        return jsonify(response.json())
+        _coers_cache_set(cache_key, data)
+        return jsonify(data)
     except requests.RequestException as exc:
         return jsonify({"error": f"Accident district service unavailable: {exc}"}), 502
     except ValueError:
         return jsonify({"error": "Accident district service returned invalid JSON"}), 502
+    except Exception as exc:
+        return jsonify({"error": f"Accident district service unavailable: {exc}"}), 502
 
 
 @app.get("/api/hotspots")
