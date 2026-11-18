@@ -184,18 +184,26 @@ export default function MapView({
 
   const accidentGridStyle = (feature) => {
     const severity = Number(feature.properties?.severity_score) || 0;
+    if (severity <= 0) {
+      return {
+        color: "#111111",
+        weight: 1,
+        fillColor: "#FFFFFF",
+        fillOpacity: 0.35,
+      };
+    }
     const band = severity > 37
-      ? { color: "#DC2626", fillColor: "#FCA5A5" }
+      ? { color: "#111111", fillColor: "#EF4444" }
       : severity > 22.5
-        ? { color: "#EA580C", fillColor: "#FDBA74" }
+        ? { color: "#111111", fillColor: "#F97316" }
         : severity > 11.5
-          ? { color: "#CA8A04", fillColor: "#FDE68A" }
-          : { color: "#EAB308", fillColor: "#FEF9C3" };
+          ? { color: "#111111", fillColor: "#FACC15" }
+          : { color: "#111111", fillColor: "#84CC16" };
     return {
       color: band.color,
-      weight: 1,
+      weight: 1.15,
       fillColor: band.fillColor,
-      fillOpacity: 0.78,
+      fillOpacity: 0.88,
     };
   };
 
@@ -333,8 +341,8 @@ export default function MapView({
           {accidentGrid?.features?.length > 0 && (
             <>
               <div className="map-legend__row">
-                <span className="map-legend__swatch map-legend__swatch--grid-light" />
-                <span>Light yellow grid (1–11.5)</span>
+                <span className="map-legend__swatch map-legend__swatch--grid-green" />
+                <span>Green grid (1–11.5)</span>
               </div>
               <div className="map-legend__row">
                 <span className="map-legend__swatch map-legend__swatch--grid-yellow" />
