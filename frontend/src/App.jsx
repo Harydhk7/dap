@@ -81,13 +81,31 @@ function getUniqueAmbulanceCount(features = []) {
 }
 
 function normalizeLookupName(value) {
-  return String(value || "")
+  const stripped = String(value || "")
+    .replace(/\s*\([^)]*\)\s*$/, "")
     .toLowerCase()
     .replace(/&/g, "and")
     .replace(/thir/g, "tir")
-    .replace(/[^a-z0-9]/g, "")
-    .replace("charki", "charkhi")
-    .replace("mahendragarh", "mahendergarh");
+    .replace(/[^a-z0-9]/g, "");
+
+  const aliases = {
+    charkidadri: "charkhidadri",
+    mahendragarh: "mahendergarh",
+    anugul: "angul",
+    balangir: "bolangir",
+    bargarh: "baragarh",
+    cuttackupd: "cuttack",
+    cuttackerural: "cuttack",
+    jajapur: "jajpur",
+    nuaparha: "nawapara",
+    nabarangapur: "nawarangpur",
+    kandhamal: "phulbani",
+    khordha: "khurda",
+    rayagarha: "rayagada",
+    subarnapur: "sonepur",
+  };
+
+  return aliases[stripped] || stripped;
 }
 
 export default function App() {
@@ -165,27 +183,43 @@ export default function App() {
       .catch(console.error);
     setAccidentGrid(null);
     if (accidentStateCode) {
-      const selectedDistrictCodes = (filters.district || [])
-        .map((district) => accidentDistricts.find(
-          (item) => normalizeLookupName(item.district_name) === normalizeLookupName(district)
-        )?.district_code)
-        .filter((code) => code && code !== "0");
-      const requests = selectedDistrictCodes.length
-        ? selectedDistrictCodes.map((code) => api.accidentGrid(accidentStateCode, code))
-        : [api.accidentGrid(accidentStateCode)];
-      Promise.all(requests)
-        .then((responses) => {
-          if (active) {
-            const features = responses.flatMap((response) => response.features || []);
-            setAccidentGrid({
-              type: "FeatureCollection",
-              features,
-            });
+      const selectedDistrictNames = filters.district || [];
+      if (selectedDistrictNames.length > 0) {
+        if (accidentDistricts.length) {
+          const selectedDistrictCodes = selectedDistrictNames
+            .map((district) => accidentDistricts.find(
+              (item) => normalizeLookupName(item.district_name) === normalizeLookupName(district)
+            )?.district_code)
+            .filter((code) => code && code !== "0");
+          if (!selectedDistrictCodes.length) {
+            console.warn("No accident district code matched", selectedDistrictNames);
+          } else {
+            Promise.all(selectedDistrictCodes.map((code) => api.accidentGrid(accidentStateCode, code)))
+              .then((responses) => {
+                if (active) {
+                  const features = responses.flatMap((response) => response.features || []);
+                  setAccidentGrid({ type: "FeatureCollection", features });
+                }
+              })
+              .catch((error) => {
+                if (active) console.error("Accident grid request failed", error);
+              });
           }
-        })
-        .catch((error) => {
-          if (active) console.error("Accident grid request failed", error);
-        });
+        }
+      } else {
+        api.accidentGrid(accidentStateCode)
+          .then((response) => {
+            if (active) {
+              setAccidentGrid({
+                type: "FeatureCollection",
+                features: response.features || [],
+              });
+            }
+          })
+          .catch((error) => {
+            if (active) console.error("Accident grid request failed", error);
+          });
+      }
     }
     api.patientInjuries().then((items) => {
       setInjuryOptions(items || []);
